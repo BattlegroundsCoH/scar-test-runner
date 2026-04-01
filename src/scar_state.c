@@ -13,28 +13,63 @@
 #include <stdio.h>
 #include <string.h>
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
+/* ── File existence check ────────────────────────────────────────── */
+
+static int file_exists(const char* path) {
+#ifdef _WIN32
+    DWORD attr = GetFileAttributesA(path);
+    return (attr != INVALID_FILE_ATTRIBUTES) && !(attr & FILE_ATTRIBUTE_DIRECTORY);
+#else
+    FILE* f = fopen(path, "r");
+    if (f) { fclose(f); return 1; }
+    return 0;
+#endif
+}
+
+/* Try to resolve a scar import path. Returns 1 and writes to resolved if found. */
+static int resolve_scar_path(lua_State* L, const char* path, char* resolved, size_t resolved_sz) {
+    /* Try scar_root first */
+    lua_getfield(L, LUA_REGISTRYINDEX, SCAR_ROOT_REGISTRY_KEY);
+    const char* scar_root = lua_tostring(L, -1);
+    lua_pop(L, 1);
+
+    if (scar_root) {
+        snprintf(resolved, resolved_sz, "%s/%s", scar_root, path);
+        for (char* p = resolved; *p; p++) { if (*p == '\\') *p = '/'; }
+        if (file_exists(resolved)) return 1;
+    }
+
+    /* Fallback to scar_data */
+    lua_getfield(L, LUA_REGISTRYINDEX, SCAR_DATA_REGISTRY_KEY);
+    const char* scar_data = lua_tostring(L, -1);
+    lua_pop(L, 1);
+
+    if (scar_data) {
+        snprintf(resolved, resolved_sz, "%s/%s", scar_data, path);
+        for (char* p = resolved; *p; p++) { if (*p == '\\') *p = '/'; }
+        if (file_exists(resolved)) return 1;
+    }
+
+    /* Not found — fall back to scar_root path for the error message */
+    if (scar_root) {
+        snprintf(resolved, resolved_sz, "%s/%s", scar_root, path);
+        for (char* p = resolved; *p; p++) { if (*p == '\\') *p = '/'; }
+    }
+    return 0;
+}
+
 /* ── import() implementation ─────────────────────────────────────── */
 
 static int l_import(lua_State* L) {
     const char* path = luaL_checkstring(L, 1);
 
-    /* Get scar_root from registry */
-    lua_getfield(L, LUA_REGISTRYINDEX, SCAR_ROOT_REGISTRY_KEY);
-    const char* scar_root = lua_tostring(L, -1);
-    lua_pop(L, 1);
-
-    if (!scar_root) {
-        return luaL_error(L, "import: scar_root not configured");
-    }
-
-    /* Build full path: scar_root/path */
+    /* Resolve the import path (scar_root first, then scar_data) */
     char fullpath[1024];
-    snprintf(fullpath, sizeof(fullpath), "%s/%s", scar_root, path);
-
-    /* Normalize path separators */
-    for (char* p = fullpath; *p; p++) {
-        if (*p == '\\') *p = '/';
-    }
+    resolve_scar_path(L, path, fullpath, sizeof(fullpath));
 
     /* Check if already loaded (use a registry table to track imports) */
     lua_getfield(L, LUA_REGISTRYINDEX, "scar_imported_files");
@@ -81,13 +116,7 @@ static int l_scar_dofile(lua_State* L) {
         strncpy(fullpath, path, sizeof(fullpath) - 1);
         fullpath[sizeof(fullpath) - 1] = '\0';
     } else {
-        lua_getfield(L, LUA_REGISTRYINDEX, SCAR_ROOT_REGISTRY_KEY);
-        const char* scar_root = lua_tostring(L, -1);
-        lua_pop(L, 1);
-        if (!scar_root) {
-            return luaL_error(L, "dofile: scar_root not configured");
-        }
-        snprintf(fullpath, sizeof(fullpath), "%s/%s", scar_root, path);
+        resolve_scar_path(L, path, fullpath, sizeof(fullpath));
     }
 
     if (luaL_dofile(L, fullpath) != LUA_OK) {
@@ -99,7 +128,7 @@ static int l_scar_dofile(lua_State* L) {
 
 /* ── State creation ──────────────────────────────────────────────── */
 
-lua_State* scar_state_new(const char* scar_root, GameState* gs) {
+lua_State* scar_state_new(const char* scar_root, const char* scar_data, GameState* gs) {
     lua_State* L = luaL_newstate();
     if (!L) return NULL;
 
@@ -111,6 +140,12 @@ lua_State* scar_state_new(const char* scar_root, GameState* gs) {
     /* Store scar_root in registry */
     lua_pushstring(L, scar_root);
     lua_setfield(L, LUA_REGISTRYINDEX, SCAR_ROOT_REGISTRY_KEY);
+
+    /* Store scar_data in registry (if provided) */
+    if (scar_data) {
+        lua_pushstring(L, scar_data);
+        lua_setfield(L, LUA_REGISTRYINDEX, SCAR_DATA_REGISTRY_KEY);
+    }
 
     /* Store game state in registry */
     game_state_store(L, gs);

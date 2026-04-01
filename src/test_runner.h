@@ -9,12 +9,13 @@ typedef struct {
     int files_failed;
 } RunnerResult;
 
-/* Run a single test file. Returns 0 on success, >0 on failure count. */
-int test_runner_run_file(const char* filepath, const char* scar_root);
+/* Run a single test file. Returns 0 on success, >0 on failure count.
+   scar_data may be NULL. */
+int test_runner_run_file(const char* filepath, const char* scar_root, const char* scar_data);
 
 /* Run all test_*.scar / *_test.scar files in a directory (recursive).
-   Returns aggregate results. */
-RunnerResult test_runner_run_dir(const char* dirpath, const char* scar_root);
+   scar_data may be NULL. Returns aggregate results. */
+RunnerResult test_runner_run_dir(const char* dirpath, const char* scar_root, const char* scar_data);
 
 /* Print final summary for multiple files */
 void test_runner_print_summary(const RunnerResult* result);

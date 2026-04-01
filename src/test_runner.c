@@ -32,14 +32,14 @@ static int is_test_file(const char* name) {
 
 /* ── Run a single test file ──────────────────────────────────────── */
 
-int test_runner_run_file(const char* filepath, const char* scar_root) {
+int test_runner_run_file(const char* filepath, const char* scar_root, const char* scar_data) {
     GameState* gs = game_state_create();
     if (!gs) {
         fprintf(stderr, "Failed to allocate game state\n");
         return -1;
     }
 
-    lua_State* L = scar_state_new(scar_root, gs);
+    lua_State* L = scar_state_new(scar_root, scar_data, gs);
     if (!L) {
         fprintf(stderr, "Failed to create Lua state\n");
         game_state_destroy(gs);
@@ -150,7 +150,7 @@ static int compare_paths(const void* a, const void* b) {
     return strcmp((const char*)a, (const char*)b);
 }
 
-RunnerResult test_runner_run_dir(const char* dirpath, const char* scar_root) {
+RunnerResult test_runner_run_dir(const char* dirpath, const char* scar_root, const char* scar_data) {
     RunnerResult result = {0, 0, 0, 0, 0};
 
     FileList* fl = (FileList*)calloc(1, sizeof(FileList));
@@ -176,7 +176,7 @@ RunnerResult test_runner_run_dir(const char* dirpath, const char* scar_root) {
     printf("Found %d test file(s) in %s\n", fl->count, dirpath);
 
     for (int i = 0; i < fl->count; i++) {
-        int failures = test_runner_run_file(fl->paths[i], scar_root);
+        int failures = test_runner_run_file(fl->paths[i], scar_root, scar_data);
         if (failures < 0) {
             result.files_failed++;
         } else if (failures > 0) {

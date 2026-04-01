@@ -4,12 +4,15 @@
 #include "lua.h"
 #include "game_state.h"
 
-/* Registry key for scar_root path */
+/* Registry keys for path configuration */
 #define SCAR_ROOT_REGISTRY_KEY "scar_test_scar_root"
+#define SCAR_DATA_REGISTRY_KEY "scar_test_scar_data"
 
 /* Create a fully configured lua_State with all mocks registered.
+   scar_root: base path for mod imports (required)
+   scar_data: fallback path for game .scar files (may be NULL)
    The caller must eventually call scar_state_destroy(). */
-lua_State* scar_state_new(const char* scar_root, GameState* gs);
+lua_State* scar_state_new(const char* scar_root, const char* scar_data, GameState* gs);
 
 /* Close the lua_State */
 void scar_state_destroy(lua_State* L);

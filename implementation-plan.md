@@ -213,6 +213,4 @@ scar-test/
 
 ## Further Considerations
 
-1. **ScarUtil.scar and other game .scar files**: The actual game ships .scar utility files (ScarUtil.scar, etc.) that mods commonly import. The test framework can load these if available, but they may call unmocked engine functions. Consider a `--scar-data <path>` flag pointing to extracted game .scar files, or provide stripped-down stubs. Recommend starting without this and adding as needed.
-2. **Rule execution simulation**: `Rule_AddInterval` and `Rule_AddOneShot` register timed callbacks. A `Mock_AdvanceTime(seconds)` helper could simulate time passage and fire due rules. This is a natural extension but can be deferred to a later phase.
-3. **Userdata vs integers for IDs**: Using plain integer IDs is simpler but doesn't prevent misuse (passing an EntityID where SquadID is expected). Full userdata with metatables would be type-safe but more complex. Recommend starting with integers and upgrading to userdata if type confusion becomes an issue.
+**Rule execution simulation**: `Rule_AddInterval` and `Rule_AddOneShot` register timed callbacks. A `Mock_AdvanceTime(seconds)` helper could simulate time passage and fire due rules. This is a natural extension but can be deferred to a later phase.

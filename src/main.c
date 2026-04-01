@@ -18,6 +18,8 @@ static void print_usage(const char* prog) {
     printf("Options:\n");
     printf("  --scar-root <path>  Base path for resolving import() calls\n");
     printf("                      (default: current directory)\n");
+    printf("  --scar-data <path>  Fallback path for game .scar files\n");
+    printf("                      (e.g. extracted CoH3 scar data)\n");
     printf("  --help              Show this help message\n");
     printf("\n");
     printf("Arguments:\n");
@@ -57,6 +59,7 @@ static int is_file(const char* path) {
 
 int main(int argc, char* argv[]) {
     const char* scar_root = ".";
+    const char* scar_data = NULL;
     const char* target = NULL;
 
     /* Parse arguments */
@@ -70,6 +73,12 @@ int main(int argc, char* argv[]) {
                 return 1;
             }
             scar_root = argv[++i];
+        } else if (strcmp(argv[i], "--scar-data") == 0) {
+            if (i + 1 >= argc) {
+                fprintf(stderr, "Error: --scar-data requires a path argument\n");
+                return 1;
+            }
+            scar_data = argv[++i];
         } else if (argv[i][0] == '-') {
             fprintf(stderr, "Error: unknown option '%s'\n", argv[i]);
             print_usage(argv[0]);
@@ -90,10 +99,10 @@ int main(int argc, char* argv[]) {
     }
 
     if (is_file(target)) {
-        int failures = test_runner_run_file(target, scar_root);
+        int failures = test_runner_run_file(target, scar_root, scar_data);
         return (failures > 0 || failures < 0) ? 1 : 0;
     } else if (is_directory(target)) {
-        RunnerResult result = test_runner_run_dir(target, scar_root);
+        RunnerResult result = test_runner_run_dir(target, scar_root, scar_data);
         test_runner_print_summary(&result);
         return (result.files_failed > 0) ? 1 : 0;
     } else {
