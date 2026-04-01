@@ -1,5 +1,5 @@
-#ifndef _WIN32
-#define _POSIX_C_SOURCE 199309L
+#if defined(__linux__)
+#define _POSIX_C_SOURCE 200112L
 #endif
 
 #include "test_api.h"
