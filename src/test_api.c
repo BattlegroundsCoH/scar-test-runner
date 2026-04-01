@@ -4,6 +4,7 @@
 
 #include "test_api.h"
 #include "game_state.h"
+#include "scar_state.h"
 #include "lauxlib.h"
 
 #include <stdio.h>
@@ -1039,6 +1040,24 @@ int test_suite_run(lua_State* L, TestSuite* ts, const char* file_label) {
     return ts->failed;
 }
 
+/* ── Resource loader ────────────────────────────────────────────── */
+
+static int l_resource(lua_State* L) {
+    const char* rel_path = luaL_checkstring(L, 1);
+    lua_getfield(L, LUA_REGISTRYINDEX, SCAR_RESOURCE_DIR_REGISTRY_KEY);
+    const char* dir = lua_tostring(L, -1);
+    lua_pop(L, 1);
+    if (!dir) return luaL_error(L, "resource: test resource directory not set");
+    char fullpath[1024];
+    snprintf(fullpath, sizeof(fullpath), "%s/%s", dir, rel_path);
+    /* Normalize backslashes to forward slashes */
+    for (char* p = fullpath; *p; p++) { if (*p == '\\') *p = '/'; }
+    if (luaL_dofile(L, fullpath) != LUA_OK) {
+        return lua_error(L); /* propagate the error */
+    }
+    return 0;
+}
+
 /* ── Registration ────────────────────────────────────────────────── */
 
 void test_api_register(lua_State* L, TestSuite* ts) {
@@ -1077,6 +1096,9 @@ void test_api_register(lua_State* L, TestSuite* ts) {
     lua_register(L, "assert_called",      l_assert_called);
     lua_register(L, "assert_not_called",  l_assert_not_called);
     lua_register(L, "assert_called_with", l_assert_called_with);
+
+    /* Resource loader */
+    lua_register(L, "resource", l_resource);
 
     /* Mock state helpers */
     lua_register(L, "Mock_CreateEntity",   l_Mock_CreateEntity);

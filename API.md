@@ -34,6 +34,14 @@ Complete reference for all functions and constants provided by the scar-test fra
 | `assert_not_called(spy [, msg])` | Spy was never called. |
 | `assert_called_with(spy, arg1, ...)` | At least one spy call matched the exact arguments. Uses `__eq` for userdata. On failure, the error message lists every recorded call with its arguments. |
 
+### Resource Loading
+
+| Function | Description |
+|---|---|
+| `resource(path)` | Load and execute a `.scar` file at `path`, resolved relative to the currently executing test file's directory. Any error in the loaded file propagates as a normal Lua error. |
+
+This is distinct from `import()`, which resolves paths against `--scar-root`. Use `resource()` for test-only helpers and fixtures that live alongside your test files.
+
 ### Spies
 
 | Function | Returns | Description |

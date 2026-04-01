@@ -56,6 +56,20 @@ int test_runner_run_file(const char* filepath, const char* scar_root, const char
 
     test_api_register(L, ts);
 
+    /* Store the test file's directory for resource() resolution */
+    {
+        char test_dir[1024];
+        strncpy(test_dir, filepath, sizeof(test_dir) - 1);
+        test_dir[sizeof(test_dir) - 1] = '\0';
+        /* Normalize backslashes to forward slashes */
+        for (char* p = test_dir; *p; p++) { if (*p == '\\') *p = '/'; }
+        char* last_slash = strrchr(test_dir, '/');
+        if (last_slash) *last_slash = '\0';
+        else { test_dir[0] = '.'; test_dir[1] = '\0'; }
+        lua_pushstring(L, test_dir);
+        lua_setfield(L, LUA_REGISTRYINDEX, SCAR_RESOURCE_DIR_REGISTRY_KEY);
+    }
+
     /* Load and execute the test file (collects describe/it blocks) */
     if (luaL_dofile(L, filepath) != LUA_OK) {
         const char* err = lua_tostring(L, -1);

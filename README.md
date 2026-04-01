@@ -90,6 +90,19 @@ end)
 | `assert_not_called(spy [, msg])` | Spy was never called |
 | `assert_called_with(spy, arg1, ...)` | At least one spy call matched the given arguments; on failure, lists all actual calls |
 
+### Resource loading
+
+| Function | Description |
+|---|---|
+| `resource(path)` | Load a `.scar` file relative to the current test file's directory. Errors propagate normally. |
+
+Useful for splitting large test suites into helper files stored alongside the test file:
+
+```lua
+-- test file at examples/test/test_foo.scar
+resource("test_resources/helpers.scar") -- loads examples/test/test_resources/helpers.scar
+```
+
 ### Spies
 
 `spy([fn])` creates a callable object that records every call. Optionally wraps an existing function (forwarding calls and returning its results).

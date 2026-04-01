@@ -5,8 +5,9 @@
 #include "game_state.h"
 
 /* Registry keys for path configuration */
-#define SCAR_ROOT_REGISTRY_KEY "scar_test_scar_root"
-#define SCAR_DATA_REGISTRY_KEY "scar_test_scar_data"
+#define SCAR_ROOT_REGISTRY_KEY         "scar_test_scar_root"
+#define SCAR_DATA_REGISTRY_KEY         "scar_test_scar_data"
+#define SCAR_RESOURCE_DIR_REGISTRY_KEY "scar_test_resource_dir"
 
 /* Create a fully configured lua_State with all mocks registered.
    scar_root: base path for mod imports (required)

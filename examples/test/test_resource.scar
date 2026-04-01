@@ -1,0 +1,43 @@
+-- test_resource.scar
+-- Tests for the resource() function, which loads a .scar file relative
+-- to the currently executing test file's own directory.
+
+describe("resource()", function()
+    describe("loading a helper file", function()
+        before_each(function()
+            HELPER_VALUE  = nil
+            HELPER_LOADED = nil
+            helper_add    = nil
+        end)
+
+        it("loads the file successfully", function()
+            resource("test_resources/helper.scar")
+            assert_true(HELPER_LOADED)
+        end)
+
+        it("exposes globals defined in the resource file", function()
+            resource("test_resources/helper.scar")
+            assert_eq(HELPER_VALUE, 42)
+        end)
+
+        it("exposes functions defined in the resource file", function()
+            resource("test_resources/helper.scar")
+            assert_eq(helper_add(3, 7), 10)
+        end)
+
+        it("can be called multiple times (idempotent reload)", function()
+            resource("test_resources/helper.scar")
+            resource("test_resources/helper.scar")
+            assert_eq(HELPER_VALUE, 42)
+        end)
+    end)
+
+    describe("error handling", function()
+        it("raises an error for a missing file", function()
+            local msg = assert_error(function()
+                resource("test_resources/does_not_exist.scar")
+            end)
+            assert_not_nil(msg)
+        end)
+    end)
+end)
