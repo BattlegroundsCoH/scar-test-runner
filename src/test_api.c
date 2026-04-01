@@ -412,14 +412,24 @@ static int l_spy_call(lua_State* L) {
 static int l_spy(lua_State* L) {
     int has_fn = lua_isfunction(L, 1);
 
+    /* If wrapping an existing spy, unwrap to the original _fn */
+    int is_existing_spy = 0;
+    if (lua_istable(L, 1) && lua_getmetatable(L, 1)) {
+        luaL_getmetatable(L, SPY_METATABLE);
+        is_existing_spy = lua_rawequal(L, -1, -2);
+        lua_pop(L, 2); /* pop both metatables */
+    }
+
     lua_createtable(L, 0, 2);
 
     /* spy._calls = {} */
     lua_newtable(L);
     lua_setfield(L, -2, "_calls");
 
-    /* spy._fn = fn or false */
-    if (has_fn) {
+    /* spy._fn = original fn (unwrapped if input is a spy) */
+    if (is_existing_spy) {
+        lua_getfield(L, 1, "_fn");
+    } else if (has_fn) {
         lua_pushvalue(L, 1);
     } else {
         lua_pushboolean(L, 0);

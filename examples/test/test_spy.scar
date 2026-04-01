@@ -87,4 +87,21 @@ describe("spy system", function()
             end)
         end)
     end)
+
+    describe("spy objects do not add up between tests", function ()
+
+        it("should call once", function ()
+            print = spy(print)
+            print()
+            assert_called(print, 1)
+        end)
+
+        it("should still be one call", function ()
+            print = spy(print)
+            print("Hello")
+            assert_called(print, 1)
+        end)
+
+    end)
+
 end)
