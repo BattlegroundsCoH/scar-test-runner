@@ -19,8 +19,8 @@ Complete reference for all functions and constants provided by the scar-test fra
 
 | Function | Description |
 |---|---|
-| `assert_eq(expected, actual [, msg])` | Values are equal (`==`). Compares by type then value. |
-| `assert_ne(a, b [, msg])` | Values are not equal. |
+| `assert_eq(expected, actual [, msg])` | Values are equal (`==`). Compares by type then value. Uses `__eq` metamethod for `Entity`, `Squad`, `Player`, `EGroup`, and `SGroup` userdata — equality is by id (integers) or name (groups). |
+| `assert_ne(a, b [, msg])` | Values are not equal. Also uses `__eq` for userdata types. |
 | `assert_true(val [, msg])` | Value is truthy (not `false` or `nil`). |
 | `assert_false(val [, msg])` | Value is falsy (`false` or `nil`). |
 | `assert_nil(val [, msg])` | Value is `nil`. |
@@ -29,10 +29,10 @@ Complete reference for all functions and constants provided by the scar-test fra
 | `assert_gte(a, b [, msg])` | `a >= b` (numbers only). |
 | `assert_lt(a, b [, msg])` | `a < b` (numbers only). |
 | `assert_lte(a, b [, msg])` | `a <= b` (numbers only). |
-| `assert_error(fn [, msg])` | Calling `fn()` must raise an error. |
+| `assert_error(fn [, msg])` | Calling `fn()` must raise an error. Returns the caught error message string so callers can inspect it. |
 | `assert_called(spy, n [, msg])` | Spy was called exactly `n` times. |
 | `assert_not_called(spy [, msg])` | Spy was never called. |
-| `assert_called_with(spy, arg1, ...)` | At least one spy call matched the exact arguments. |
+| `assert_called_with(spy, arg1, ...)` | At least one spy call matched the exact arguments. Uses `__eq` for userdata. On failure, the error message lists every recorded call with its arguments. |
 
 ### Spies
 

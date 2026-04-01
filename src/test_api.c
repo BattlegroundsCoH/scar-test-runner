@@ -297,8 +297,8 @@ static int l_assert_error(lua_State* L) {
         const char* msg = luaL_optstring(L, 2, "assert_error failed: function did not raise an error");
         return luaL_error(L, "%s", msg);
     }
-    lua_pop(L, 1); /* pop error message */
-    return 0;
+    /* Return the caught error message to the caller */
+    return 1;
 }
 
 static int l_assert_gt(lua_State* L) {
@@ -364,7 +364,7 @@ static int values_equal(lua_State* L, int idx1, int idx2) {
         case LUA_TBOOLEAN: return lua_toboolean(L, idx1) == lua_toboolean(L, idx2);
         case LUA_TNUMBER:  return lua_tonumber(L, idx1) == lua_tonumber(L, idx2);
         case LUA_TSTRING:  return strcmp(lua_tostring(L, idx1), lua_tostring(L, idx2)) == 0;
-        default:           return lua_rawequal(L, idx1, idx2);
+        default:           return lua_compare(L, idx1, idx2, LUA_OPEQ);
     }
 }
 
@@ -531,8 +531,44 @@ static int l_assert_called_with(lua_State* L) {
         }
     }
 
+    /* Build error message listing expected args and every recorded call */
+    luaL_Buffer b;
+    luaL_buffinit(L, &b);
+    luaL_addstring(&b, "assert_called_with failed: no call matched the expected arguments\n  Expected: (");
+    for (int a = 1; a <= expected_nargs; a++) {
+        if (a > 1) luaL_addstring(&b, ", ");
+        luaL_tolstring(L, 1 + a, NULL);
+        luaL_addvalue(&b);
+    }
+    luaL_addstring(&b, ")");
+
+    /* Re-fetch _calls (was popped above) */
+    lua_getfield(L, 1, "_calls");
+    int calls_idx2 = lua_gettop(L);
+    int ncalls2 = (int)lua_rawlen(L, calls_idx2);
+    luaL_addstring(&b, "\n  Actual calls:");
+    for (int c = 1; c <= ncalls2; c++) {
+        lua_rawgeti(L, calls_idx2, c);
+        int rec = lua_gettop(L);
+        lua_getfield(L, rec, "n");
+        int n = (int)lua_tointeger(L, -1);
+        lua_pop(L, 1);
+        char prefix[16];
+        snprintf(prefix, sizeof(prefix), "\n    [%d] (", c);
+        luaL_addstring(&b, prefix);
+        for (int a = 1; a <= n; a++) {
+            if (a > 1) luaL_addstring(&b, ", ");
+            lua_rawgeti(L, rec, a);
+            luaL_tolstring(L, -1, NULL);
+            luaL_addvalue(&b);
+            lua_pop(L, 1); /* pop stored arg */
+        }
+        luaL_addstring(&b, ")");
+        lua_pop(L, 1); /* pop record */
+    }
     lua_pop(L, 1); /* pop _calls */
-    return luaL_error(L, "assert_called_with failed: no call matched the expected arguments");
+    luaL_pushresult(&b);
+    return lua_error(L);
 }
 
 /* ── Mock state helpers ──────────────────────────────────────────── */
@@ -977,7 +1013,7 @@ int test_suite_run(lua_State* L, TestSuite* ts, const char* file_label) {
                    i + 1, tc->full_name, format_duration(tc->duration_ms, tbuf, sizeof(tbuf)));
         } else {
             ts->failed++;
-            printf(COLOR_RED "  not ok %d" COLOR_RESET " - %s" COLOR_DIM " (%s)" COLOR_RESET "\n",
+            printf(COLOR_RED "  failed %d" COLOR_RESET " - %s" COLOR_DIM " (%s)" COLOR_RESET "\n",
                    i + 1, tc->full_name, format_duration(tc->duration_ms, tbuf, sizeof(tbuf)));
             if (tc->error_msg[0]) {
                 printf(COLOR_RED "    --- %s" COLOR_RESET "\n", tc->error_msg);

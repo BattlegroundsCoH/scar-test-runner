@@ -75,7 +75,7 @@ end)
 
 | Function | Description |
 |---|---|
-| `assert_eq(expected, actual [, msg])` | Deep equality (`==`) |
+| `assert_eq(expected, actual [, msg])` | Deep equality (`==`); uses `__eq` metamethod for userdata types |
 | `assert_ne(a, b [, msg])` | Not equal |
 | `assert_true(val [, msg])` | Truthy |
 | `assert_false(val [, msg])` | Falsy |
@@ -85,10 +85,10 @@ end)
 | `assert_lte(a, b [, msg])` | `a <= b` |
 | `assert_gt(a, b [, msg])` | `a > b` |
 | `assert_gte(a, b [, msg])` | `a >= b` |
-| `assert_error(fn [, msg])` | `fn()` must raise an error |
+| `assert_error(fn [, msg])` | `fn()` must raise an error; returns the caught error message string |
 | `assert_called(spy, n [, msg])` | Spy was called exactly `n` times |
 | `assert_not_called(spy [, msg])` | Spy was never called |
-| `assert_called_with(spy, arg1, ...)` | At least one spy call matched the given arguments |
+| `assert_called_with(spy, arg1, ...)` | At least one spy call matched the given arguments; on failure, lists all actual calls |
 
 ### Spies
 

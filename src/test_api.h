@@ -8,7 +8,7 @@
 /* ── Test tree structures ────────────────────────────────────────── */
 
 #define MAX_TEST_NAME    256
-#define MAX_TESTS         512
+#define MAX_TESTS         2048
 #define MAX_DESCRIBES     128
 #define MAX_HOOKS          32
 
