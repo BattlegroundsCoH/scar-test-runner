@@ -152,7 +152,7 @@ jobs:
       - name: Download scar-test
         run: |
           curl -fsSL \
-            "https://github.com/BattlegroundsCoH/scar-test/releases/latest/download/scar-test-linux-amd64.tar.gz" \
+            "https://github.com/BattlegroundsCoH/scar-test-runner/releases/latest/download/scar-test-linux-amd64.tar.gz" \
             -o scar-test.tar.gz
           tar xzf scar-test.tar.gz
           chmod +x scar-test
