@@ -286,10 +286,6 @@ static void register_constants(lua_State* L) {
     /* SCAR type for position */
     lua_pushinteger(L, 6); lua_setglobal(L, "ST_SCARPOS");
 
-    /* Battlegrounds globals (dev mode flags) */
-    lua_pushboolean(L, 0); lua_setglobal(L, "bg_is_dev");
-    lua_pushboolean(L, 0); lua_setglobal(L, "bg_is_realistic_damage_model");
-    lua_pushboolean(L, 0); lua_setglobal(L, "bg_is_supply_mode");
 }
 
 void mock_misc_register(lua_State* L) {

@@ -82,10 +82,37 @@ end)
 | `assert_nil(val [, msg])` | Is nil |
 | `assert_not_nil(val [, msg])` | Not nil |
 | `assert_lt(a, b [, msg])` | `a < b` |
-| `assert_le(a, b [, msg])` | `a <= b` |
+| `assert_lte(a, b [, msg])` | `a <= b` |
 | `assert_gt(a, b [, msg])` | `a > b` |
-| `assert_ge(a, b [, msg])` | `a >= b` |
+| `assert_gte(a, b [, msg])` | `a >= b` |
 | `assert_error(fn [, msg])` | `fn()` must raise an error |
+| `assert_called(spy, n [, msg])` | Spy was called exactly `n` times |
+| `assert_not_called(spy [, msg])` | Spy was never called |
+| `assert_called_with(spy, arg1, ...)` | At least one spy call matched the given arguments |
+
+### Spies
+
+`spy([fn])` creates a callable object that records every call. Optionally wraps an existing function (forwarding calls and returning its results).
+
+```lua
+-- Spy on a function
+local callback = spy(function(x) return x * 2 end)
+callback(5)
+callback(10)
+assert_called(callback, 2)
+assert_called_with(callback, 5)
+
+-- No-op spy
+local s = spy()
+s("hello", 123)
+assert_called(s, 1)
+assert_called_with(s, "hello", 123)
+
+-- Spy on a global (automatically unwraps if already a spy)
+print = spy(print)
+print("test output")
+assert_called(print, 1)
+```
 
 ### Mock helpers
 
@@ -93,31 +120,23 @@ end)
 |---|---|---|
 | `Mock_CreateEntity(id, bp, x, y, z [, health_max])` | `Entity` | Create a mock entity |
 | `Mock_CreateSquad(id, bp [, {entity, ...}])` | `Squad` | Create a mock squad (optional entity list) |
-| `Mock_CreatePlayer(id [, team_id])` | `Player` | Create a mock player |
+| `Mock_CreatePlayer(id [, team_id, name, race, is_human])` | `Player` | Create a mock player |
 | `Mock_SetEntityOwner(entity, player)` | — | Assign entity to player |
 | `Mock_SetSquadOwner(squad, player)` | — | Assign squad to player |
 | `Mock_SetResources(player, mp, fuel, mun)` | — | Set player resources |
+| `Mock_SetPlayerStartingPosition(player, x, y, z)` | — | Set player spawn position |
+| `Mock_CreateTerritory(sector_id [, owner_id, x, y, z])` | — | Create a territory sector |
+| `Mock_CreateStrategyPoint(entity, sector_id [, is_vp])` | — | Link an entity to a sector as a strategy point |
+| `Mock_FireGlobalEvent(event_type, ...)` | — | Dispatch a global event to registered handlers |
 | `Mock_ResetState()` | — | Clear all entities, squads, players, groups |
 | `Mock_AdvanceTime(seconds)` | — | Advance game clock and fire due rules |
+| `Scar_ForceInit()` | — | Fire all `Game_AddInit` callbacks |
+| `Scar_ForceStart()` | — | Run `OnGameSetup` → init funcs → `OnInit` delegates |
+| `Scar_ForceGameSetup()` | — | Run `OnGameSetup` only |
 
 All `Entity`, `Squad`, `Player`, `EGroup`, and `SGroup` values are typed userdata with metatables — passing the wrong type raises an error, just like the real engine.
 
-## Mocked SCAR API
-
-The following SCAR modules are implemented as mocks:
-
-| Module | Functions |
-|---|---|
-| **Entity** | `GetHealth`, `SetHealth`, `GetHealthMax`, `GetHealthPercentage`, `GetPosition`, `SetPosition`, `GetPlayerOwner`, `SetPlayerOwner`, `IsAlive`, `IsInvulnerable`, `SetInvulnerable`, `GetBlueprint`, `Kill`, `WarpToPos`, `GetGameID`, `FromWorldID`, `GetSquad` |
-| **Squad** | `GetHealth`, `GetHealthMax`, `GetHealthPercentage`, `GetPosition`, `SetPosition`, `GetPlayerOwner`, `SetPlayerOwner`, `Count`, `GetBlueprint`, `GetGameID`, `FromWorldID` |
-| **Player** | `GetID`, `GetTeam`, `GetResource`, `SetResource`, `OwnsEntity`, `OwnsSquad`, `FromWorldID` |
-| **EGroup** | `Create`, `Add`, `Count`, `Clear`, `ContainsEntity`, `GetEntityAt` |
-| **SGroup** | `Create`, `Add`, `Count`, `Clear`, `ContainsSquad`, `GetSquadAt` |
-| **Game** | `AddInit`, `GetLocalPlayer`, `World_GetPlayerCount`, `World_GetPlayerAt`, `World_GetGameTime` |
-| **Rules** | `Rule_AddInterval`, `Rule_AddOneShot`, `Rule_Exists`, `Rule_Remove` |
-| **Misc** | `Loc_FormatText`, `scartype`, resource/scartype/game constants, no-op stubs for Sound/UI/Camera/Cmd |
-
-Functions not listed above will raise a hard error if called, so you know immediately when your script uses something that isn't mocked yet.
+For the complete list of all mocked SCAR functions, constants, and test framework APIs, see [API.md](API.md).
 
 ## Using in GitHub Actions
 
