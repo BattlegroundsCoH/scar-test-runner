@@ -12,6 +12,8 @@
 
 #ifdef _WIN32
 #include <windows.h>
+#else
+#include <time.h>
 #endif
 
 /* ── Registry key for TestSuite ──────────────────────────────────── */
@@ -63,7 +65,6 @@ static void enable_ansi_colors(void) {
 #define COLOR_RESET  "\033[0m"
 #define COLOR_DIM    "\033[2m"
 #else
-#include <time.h>
 #define COLOR_GREEN  "\033[32m"
 #define COLOR_RED    "\033[31m"
 #define COLOR_YELLOW "\033[33m"
