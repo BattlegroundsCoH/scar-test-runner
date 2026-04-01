@@ -217,7 +217,7 @@ static int l_assert_eq(lua_State* L) {
     } else if (t1 == LUA_TNIL) {
         eq = 1;
     } else {
-        eq = lua_rawequal(L, 1, 2);
+        eq = lua_compare(L, 1, 2, LUA_OPEQ);
     }
 
     if (!eq) {
@@ -248,7 +248,7 @@ static int l_assert_ne(lua_State* L) {
         else if (t1 == LUA_TNIL)
             eq = 1;
         else
-            eq = lua_rawequal(L, 1, 2);
+            eq = lua_compare(L, 1, 2, LUA_OPEQ);
     }
     if (eq) {
         const char* msg = luaL_optstring(L, 3, "assert_ne failed: values are equal");

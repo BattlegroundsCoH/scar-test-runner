@@ -1,0 +1,175 @@
+-- Tests that assert_eq and assert_ne correctly compare SCAR userdata types
+-- using their __eq metamethods (identity by id or name).
+
+describe("assert_eq with userdata types", function()
+
+    -- ── Entity ────────────────────────────────────────────────────────────
+
+    describe("Entity equality", function()
+        local e1, e2, e3
+
+        before_each(function()
+            e1 = Mock_CreateEntity(1, "infantry", 0, 0, 0)
+            e2 = Mock_CreateEntity(2, "infantry", 0, 0, 0)
+            -- e3 is a second, distinct userdata wrapping the same entity id as e1
+            e3 = Entity_FromWorldID(1)
+        end)
+
+        it("should be equal when ids match", function()
+            assert_eq(e1, e3)
+        end)
+
+        it("should not be equal when ids differ", function()
+            assert_ne(e1, e2)
+        end)
+
+        it("should fail assert_eq for different ids", function()
+            assert_error(function()
+                assert_eq(e1, e2)
+            end)
+        end)
+
+        it("should fail assert_ne for same id", function()
+            assert_error(function()
+                assert_ne(e1, e3)
+            end)
+        end)
+    end)
+
+    -- ── Squad ─────────────────────────────────────────────────────────────
+
+    describe("Squad equality", function()
+        local s1, s2, s3
+
+        before_each(function()
+            s1 = Mock_CreateSquad(10, "grenadiers")
+            s2 = Mock_CreateSquad(20, "grenadiers")
+            -- s3 is a second, distinct userdata wrapping the same squad id as s1
+            s3 = Squad_FromWorldID(10)
+        end)
+
+        it("should be equal when ids match", function()
+            assert_eq(s1, s3)
+        end)
+
+        it("should not be equal when ids differ", function()
+            assert_ne(s1, s2)
+        end)
+
+        it("should fail assert_eq for different ids", function()
+            assert_error(function()
+                assert_eq(s1, s2)
+            end)
+        end)
+    end)
+
+    -- ── Player ────────────────────────────────────────────────────────────
+
+    describe("Player equality", function()
+        local p1, p2, p3
+
+        before_each(function()
+            p1 = Mock_CreatePlayer(1, 1)
+            p2 = Mock_CreatePlayer(2, 2)
+            -- p3 is a second, distinct userdata wrapping the same player id as p1
+            p3 = Player_FromWorldID(1)
+        end)
+
+        it("should be equal when ids match", function()
+            assert_eq(p1, p3)
+        end)
+
+        it("should not be equal when ids differ", function()
+            assert_ne(p1, p2)
+        end)
+
+        it("should fail assert_eq for different ids", function()
+            assert_error(function()
+                assert_eq(p1, p2)
+            end)
+        end)
+    end)
+
+    -- ── EGroup ────────────────────────────────────────────────────────────
+
+    describe("EGroup equality", function()
+        local eg1, eg2, eg3
+
+        before_each(function()
+            eg1 = EGroup_Create("eg_alpha")
+            eg2 = EGroup_Create("eg_beta")
+            eg3 = EGroup_Create("eg_alpha")  -- same name as eg1; returns the same group
+        end)
+
+        it("should be equal when names match", function()
+            assert_eq(eg1, eg3)
+        end)
+
+        it("should not be equal when names differ", function()
+            assert_ne(eg1, eg2)
+        end)
+
+        it("should fail assert_eq for different names", function()
+            assert_error(function()
+                assert_eq(eg1, eg2)
+            end)
+        end)
+    end)
+
+    -- ── SGroup ────────────────────────────────────────────────────────────
+
+    describe("SGroup equality", function()
+        local sg1, sg2, sg3
+
+        before_each(function()
+            sg1 = SGroup_Create("sg_alpha")
+            sg2 = SGroup_Create("sg_beta")
+            sg3 = SGroup_Create("sg_alpha")  -- same name as sg1; returns the same group
+        end)
+
+        it("should be equal when names match", function()
+            assert_eq(sg1, sg3)
+        end)
+
+        it("should not be equal when names differ", function()
+            assert_ne(sg1, sg2)
+        end)
+
+        it("should fail assert_eq for different names", function()
+            assert_error(function()
+                assert_eq(sg1, sg2)
+            end)
+        end)
+    end)
+
+    -- ── Cross-type ────────────────────────────────────────────────────────
+
+    describe("cross-type comparisons", function()
+        local e, s, p
+
+        before_each(function()
+            e = Mock_CreateEntity(1, "infantry", 0, 0, 0)
+            s = Mock_CreateSquad(1, "grenadiers")
+            p = Mock_CreatePlayer(1, 1)
+        end)
+
+        it("entity and squad with same id are not equal", function()
+            assert_ne(e, s)
+        end)
+
+        it("entity and player with same id are not equal", function()
+            assert_ne(e, p)
+        end)
+
+        it("squad and player with same id are not equal", function()
+            assert_ne(s, p)
+        end)
+
+        it("assert_eq on different types raises an error", function()
+            assert_error(function()
+                assert_eq(e, s)
+            end)
+        end)
+    end)
+
+end)

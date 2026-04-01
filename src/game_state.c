@@ -291,37 +291,37 @@ static int sgroup_tostring(lua_State* L) {
 /* ── __eq metamethods (same type + same id/name = equal) ─────────── */
 
 static int entity_eq(lua_State* L) {
-    EntityUD* a = (EntityUD*)luaL_checkudata(L, 1, SCAR_ENTITY_MT);
-    EntityUD* b = (EntityUD*)luaL_checkudata(L, 2, SCAR_ENTITY_MT);
-    lua_pushboolean(L, a->id == b->id);
+    EntityUD* a = (EntityUD*)luaL_testudata(L, 1, SCAR_ENTITY_MT);
+    EntityUD* b = (EntityUD*)luaL_testudata(L, 2, SCAR_ENTITY_MT);
+    lua_pushboolean(L, a && b && (a->id == b->id));
     return 1;
 }
 
 static int squad_eq(lua_State* L) {
-    SquadUD* a = (SquadUD*)luaL_checkudata(L, 1, SCAR_SQUAD_MT);
-    SquadUD* b = (SquadUD*)luaL_checkudata(L, 2, SCAR_SQUAD_MT);
-    lua_pushboolean(L, a->id == b->id);
+    SquadUD* a = (SquadUD*)luaL_testudata(L, 1, SCAR_SQUAD_MT);
+    SquadUD* b = (SquadUD*)luaL_testudata(L, 2, SCAR_SQUAD_MT);
+    lua_pushboolean(L, a && b && (a->id == b->id));
     return 1;
 }
 
 static int player_eq(lua_State* L) {
-    PlayerUD* a = (PlayerUD*)luaL_checkudata(L, 1, SCAR_PLAYER_MT);
-    PlayerUD* b = (PlayerUD*)luaL_checkudata(L, 2, SCAR_PLAYER_MT);
-    lua_pushboolean(L, a->id == b->id);
+    PlayerUD* a = (PlayerUD*)luaL_testudata(L, 1, SCAR_PLAYER_MT);
+    PlayerUD* b = (PlayerUD*)luaL_testudata(L, 2, SCAR_PLAYER_MT);
+    lua_pushboolean(L, a && b && (a->id == b->id));
     return 1;
 }
 
 static int egroup_eq(lua_State* L) {
-    EGroupUD* a = (EGroupUD*)luaL_checkudata(L, 1, SCAR_EGROUP_MT);
-    EGroupUD* b = (EGroupUD*)luaL_checkudata(L, 2, SCAR_EGROUP_MT);
-    lua_pushboolean(L, strcmp(a->name, b->name) == 0);
+    EGroupUD* a = (EGroupUD*)luaL_testudata(L, 1, SCAR_EGROUP_MT);
+    EGroupUD* b = (EGroupUD*)luaL_testudata(L, 2, SCAR_EGROUP_MT);
+    lua_pushboolean(L, a && b && (strcmp(a->name, b->name) == 0));
     return 1;
 }
 
 static int sgroup_eq(lua_State* L) {
-    SGroupUD* a = (SGroupUD*)luaL_checkudata(L, 1, SCAR_SGROUP_MT);
-    SGroupUD* b = (SGroupUD*)luaL_checkudata(L, 2, SCAR_SGROUP_MT);
-    lua_pushboolean(L, strcmp(a->name, b->name) == 0);
+    SGroupUD* a = (SGroupUD*)luaL_testudata(L, 1, SCAR_SGROUP_MT);
+    SGroupUD* b = (SGroupUD*)luaL_testudata(L, 2, SCAR_SGROUP_MT);
+    lua_pushboolean(L, a && b && (strcmp(a->name, b->name) == 0));
     return 1;
 }
 
