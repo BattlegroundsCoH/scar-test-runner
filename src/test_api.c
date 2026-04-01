@@ -6,6 +6,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 /* ── Registry key for TestSuite ──────────────────────────────────── */
 
 #define TEST_SUITE_REGISTRY_KEY "scar_test_suite"
@@ -22,29 +26,63 @@ static TestSuite* test_suite_from_lua(lua_State* L) {
     return ts;
 }
 
+/* ── High-resolution timer ────────────────────────────────────────── */
+
+static double get_time_ms(void) {
+#ifdef _WIN32
+    static LARGE_INTEGER freq = {0};
+    if (freq.QuadPart == 0) QueryPerformanceFrequency(&freq);
+    LARGE_INTEGER now;
+    QueryPerformanceCounter(&now);
+    return (double)now.QuadPart / (double)freq.QuadPart * 1000.0;
+#else
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (double)ts.tv_sec * 1000.0 + (double)ts.tv_nsec / 1000000.0;
+#endif
+}
+
 /* ── Color output helpers ────────────────────────────────────────── */
 
 #ifdef _WIN32
-#include <windows.h>
 static void enable_ansi_colors(void) {
     HANDLE h = GetStdHandle(STD_OUTPUT_HANDLE);
     DWORD mode = 0;
     GetConsoleMode(h, &mode);
     SetConsoleMode(h, mode | 0x0004 /* ENABLE_VIRTUAL_TERMINAL_PROCESSING */);
+    SetConsoleOutputCP(65001); /* UTF-8 */
 }
 #define COLOR_GREEN  "\033[32m"
 #define COLOR_RED    "\033[31m"
 #define COLOR_YELLOW "\033[33m"
+#define COLOR_CYAN   "\033[36m"
 #define COLOR_RESET  "\033[0m"
 #define COLOR_DIM    "\033[2m"
 #else
+#include <time.h>
 #define COLOR_GREEN  "\033[32m"
 #define COLOR_RED    "\033[31m"
 #define COLOR_YELLOW "\033[33m"
+#define COLOR_CYAN   "\033[36m"
 #define COLOR_RESET  "\033[0m"
 #define COLOR_DIM    "\033[2m"
 static void enable_ansi_colors(void) {}
 #endif
+
+/* ── Stylized print() override ────────────────────────────────────── */
+
+static int l_styled_print(lua_State* L) {
+    int n = lua_gettop(L);
+    printf(COLOR_CYAN "    \xe2\x94\x82 " COLOR_RESET);
+    for (int i = 1; i <= n; i++) {
+        if (i > 1) printf("\t");
+        const char* s = luaL_tolstring(L, i, NULL);
+        printf("%s", s);
+        lua_pop(L, 1);
+    }
+    printf("\n");
+    return 0;
+}
 
 /* ── Build full name from describe chain ─────────────────────────── */
 
@@ -308,6 +346,178 @@ static int l_assert_lte(lua_State* L) {
         return luaL_error(L, "assert_lte failed: %f is not <= %f", a, b);
     }
     return 0;
+}
+
+/* ── Value equality helper (used by spy assertions) ──────────────── */
+
+static int values_equal(lua_State* L, int idx1, int idx2) {
+    int t1 = lua_type(L, idx1);
+    int t2 = lua_type(L, idx2);
+    if (t1 != t2) return 0;
+    switch (t1) {
+        case LUA_TNIL:     return 1;
+        case LUA_TBOOLEAN: return lua_toboolean(L, idx1) == lua_toboolean(L, idx2);
+        case LUA_TNUMBER:  return lua_tonumber(L, idx1) == lua_tonumber(L, idx2);
+        case LUA_TSTRING:  return strcmp(lua_tostring(L, idx1), lua_tostring(L, idx2)) == 0;
+        default:           return lua_rawequal(L, idx1, idx2);
+    }
+}
+
+/* ── Spy system ──────────────────────────────────────────────────── */
+
+#define SPY_METATABLE "ScarSpy"
+
+/* __call metamethod: record call args, then forward to wrapped fn */
+static int l_spy_call(lua_State* L) {
+    /* self (spy table) is at index 1, args start at 2 */
+    int nargs = lua_gettop(L) - 1;
+
+    /* Append a record to spy._calls */
+    lua_getfield(L, 1, "_calls");
+    int calls_idx = lua_gettop(L);
+    int call_num = (int)lua_rawlen(L, calls_idx) + 1;
+
+    /* Build {arg1, arg2, ..., n=nargs} */
+    lua_createtable(L, nargs, 1);
+    for (int i = 0; i < nargs; i++) {
+        lua_pushvalue(L, 2 + i);
+        lua_rawseti(L, -2, i + 1);
+    }
+    lua_pushinteger(L, nargs);
+    lua_setfield(L, -2, "n");
+
+    lua_rawseti(L, calls_idx, call_num);
+    lua_pop(L, 1); /* pop _calls */
+
+    /* Forward to wrapped function if present */
+    lua_getfield(L, 1, "_fn");
+    if (lua_isfunction(L, -1)) {
+        int base = lua_gettop(L);
+        for (int i = 0; i < nargs; i++) {
+            lua_pushvalue(L, 2 + i);
+        }
+        lua_call(L, nargs, LUA_MULTRET);
+        return lua_gettop(L) - base + 1;
+    }
+    lua_pop(L, 1);
+    return 0;
+}
+
+/* spy([fn]) → spy object  (callable table that records calls) */
+static int l_spy(lua_State* L) {
+    int has_fn = lua_isfunction(L, 1);
+
+    lua_createtable(L, 0, 2);
+
+    /* spy._calls = {} */
+    lua_newtable(L);
+    lua_setfield(L, -2, "_calls");
+
+    /* spy._fn = fn or false */
+    if (has_fn) {
+        lua_pushvalue(L, 1);
+    } else {
+        lua_pushboolean(L, 0);
+    }
+    lua_setfield(L, -2, "_fn");
+
+    /* Set ScarSpy metatable (provides __call) */
+    luaL_getmetatable(L, SPY_METATABLE);
+    lua_setmetatable(L, -2);
+
+    return 1;
+}
+
+/* Helper: get call count from spy, or error if not a spy */
+static int spy_call_count(lua_State* L, int spy_idx) {
+    lua_getfield(L, spy_idx, "_calls");
+    if (lua_isnil(L, -1)) {
+        luaL_error(L, "expected a spy (created with spy())");
+    }
+    int n = (int)lua_rawlen(L, -1);
+    lua_pop(L, 1);
+    return n;
+}
+
+/* assert_called(spy, n [, msg]) — verify spy was called exactly n times */
+static int l_assert_called(lua_State* L) {
+    luaL_checktype(L, 1, LUA_TTABLE);
+    int expected = (int)luaL_checkinteger(L, 2);
+    int actual = spy_call_count(L, 1);
+
+    if (actual != expected) {
+        const char* msg = luaL_optstring(L, 3, NULL);
+        if (msg)
+            return luaL_error(L, "assert_called failed: %s (expected %d calls, got %d)", msg, expected, actual);
+        return luaL_error(L, "assert_called failed: expected %d calls, got %d", expected, actual);
+    }
+    return 0;
+}
+
+/* assert_not_called(spy [, msg]) — verify spy was never called */
+static int l_assert_not_called(lua_State* L) {
+    luaL_checktype(L, 1, LUA_TTABLE);
+    int actual = spy_call_count(L, 1);
+
+    if (actual != 0) {
+        const char* msg = luaL_optstring(L, 2, NULL);
+        if (msg)
+            return luaL_error(L, "assert_not_called failed: %s (called %d times)", msg, actual);
+        return luaL_error(L, "assert_not_called failed: spy was called %d times", actual);
+    }
+    return 0;
+}
+
+/* assert_called_with(spy, arg1, arg2, ...) — at least one call matched */
+static int l_assert_called_with(lua_State* L) {
+    luaL_checktype(L, 1, LUA_TTABLE);
+    int expected_nargs = lua_gettop(L) - 1;
+
+    lua_getfield(L, 1, "_calls");
+    if (lua_isnil(L, -1)) {
+        return luaL_error(L, "assert_called_with: expected a spy (created with spy())");
+    }
+    int calls_idx = lua_gettop(L);
+    int ncalls = (int)lua_rawlen(L, calls_idx);
+
+    if (ncalls == 0) {
+        lua_pop(L, 1);
+        return luaL_error(L, "assert_called_with failed: spy was never called");
+    }
+
+    for (int c = 1; c <= ncalls; c++) {
+        lua_rawgeti(L, calls_idx, c);
+        int rec_idx = lua_gettop(L);
+
+        lua_getfield(L, rec_idx, "n");
+        int stored_n = (int)lua_tointeger(L, -1);
+        lua_pop(L, 1);
+
+        if (stored_n != expected_nargs) {
+            lua_pop(L, 1); /* pop record */
+            continue;
+        }
+
+        int match = 1;
+        for (int a = 1; a <= expected_nargs; a++) {
+            lua_rawgeti(L, rec_idx, a);   /* stored arg */
+            if (!values_equal(L, -1, 1 + a)) {
+                match = 0;
+                lua_pop(L, 1);
+                break;
+            }
+            lua_pop(L, 1);
+        }
+
+        lua_pop(L, 1); /* pop record */
+        if (match) {
+            lua_pop(L, 1); /* pop _calls */
+            return 0;       /* success */
+        }
+    }
+
+    lua_pop(L, 1); /* pop _calls */
+    return luaL_error(L, "assert_called_with failed: no call matched the expected arguments");
 }
 
 /* ── Mock state helpers ──────────────────────────────────────────── */
@@ -669,6 +879,18 @@ static void collect_hooks_chain(TestSuite* ts, int describe_idx,
 
 /* ── Execute all collected tests ─────────────────────────────────── */
 
+/* ── Format duration for display ─────────────────────────────────── */
+
+static const char* format_duration(double ms, char* buf, size_t buf_sz) {
+    if (ms < 1.0)
+        snprintf(buf, buf_sz, "%.0f \xc2\xb5s", ms * 1000.0);
+    else if (ms < 1000.0)
+        snprintf(buf, buf_sz, "%.1f ms", ms);
+    else
+        snprintf(buf, buf_sz, "%.2f s", ms / 1000.0);
+    return buf;
+}
+
 int test_suite_run(lua_State* L, TestSuite* ts, const char* file_label) {
     enable_ansi_colors();
 
@@ -678,6 +900,7 @@ int test_suite_run(lua_State* L, TestSuite* ts, const char* file_label) {
     ts->passed = 0;
     ts->failed = 0;
 
+    double suite_start = get_time_ms();
     GameState* gs = game_state_from_lua(L);
 
     for (int i = 0; i < ts->test_count; i++) {
@@ -706,6 +929,7 @@ int test_suite_run(lua_State* L, TestSuite* ts, const char* file_label) {
         }
 
         /* Run the test itself */
+        double t_start = get_time_ms();
         if (!hook_failed) {
             lua_rawgeti(L, LUA_REGISTRYINDEX, tc->lua_func_ref);
             if (lua_pcall(L, 0, 0, 0) != LUA_OK) {
@@ -717,6 +941,7 @@ int test_suite_run(lua_State* L, TestSuite* ts, const char* file_label) {
                 tc->passed = true;
             }
         }
+        tc->duration_ms = get_time_ms() - t_start;
 
         /* Run after_each hooks (outermost to innermost, even if test failed) */
         if (tc->describe_idx >= 0) {
@@ -730,12 +955,15 @@ int test_suite_run(lua_State* L, TestSuite* ts, const char* file_label) {
         }
 
         /* Print result */
+        char tbuf[32];
         if (tc->passed) {
             ts->passed++;
-            printf(COLOR_GREEN "  ok %d" COLOR_RESET " - %s\n", i + 1, tc->full_name);
+            printf(COLOR_GREEN "  ok %d" COLOR_RESET " - %s" COLOR_DIM " (%s)" COLOR_RESET "\n",
+                   i + 1, tc->full_name, format_duration(tc->duration_ms, tbuf, sizeof(tbuf)));
         } else {
             ts->failed++;
-            printf(COLOR_RED "  not ok %d" COLOR_RESET " - %s\n", i + 1, tc->full_name);
+            printf(COLOR_RED "  not ok %d" COLOR_RESET " - %s" COLOR_DIM " (%s)" COLOR_RESET "\n",
+                   i + 1, tc->full_name, format_duration(tc->duration_ms, tbuf, sizeof(tbuf)));
             if (tc->error_msg[0]) {
                 printf(COLOR_RED "    --- %s" COLOR_RESET "\n", tc->error_msg);
             }
@@ -743,12 +971,18 @@ int test_suite_run(lua_State* L, TestSuite* ts, const char* file_label) {
     }
 
     /* Summary */
+    double suite_ms = get_time_ms() - suite_start;
+    char suite_tbuf[32];
     if (ts->failed > 0) {
-        printf("\n" COLOR_RED "  Results: %d/%d passed, %d failed" COLOR_RESET "\n",
-               ts->passed, ts->total, ts->failed);
+        printf("\n" COLOR_RED "  Results: %d/%d passed, %d failed" COLOR_RESET
+               COLOR_DIM " in %s" COLOR_RESET "\n",
+               ts->passed, ts->total, ts->failed,
+               format_duration(suite_ms, suite_tbuf, sizeof(suite_tbuf)));
     } else {
-        printf("\n" COLOR_GREEN "  Results: %d/%d passed" COLOR_RESET "\n",
-               ts->passed, ts->total);
+        printf("\n" COLOR_GREEN "  Results: %d/%d passed" COLOR_RESET
+               COLOR_DIM " in %s" COLOR_RESET "\n",
+               ts->passed, ts->total,
+               format_duration(suite_ms, suite_tbuf, sizeof(suite_tbuf)));
     }
 
     return ts->failed;
@@ -759,24 +993,39 @@ int test_suite_run(lua_State* L, TestSuite* ts, const char* file_label) {
 void test_api_register(lua_State* L, TestSuite* ts) {
     test_suite_store(L, ts);
 
+    /* Spy metatable (provides __call) */
+    luaL_newmetatable(L, SPY_METATABLE);
+    lua_pushcfunction(L, l_spy_call);
+    lua_setfield(L, -2, "__call");
+    lua_pop(L, 1);
+
     /* BDD structure */
     lua_register(L, "describe",     l_describe);
     lua_register(L, "it",           l_it);
     lua_register(L, "before_each",  l_before_each);
     lua_register(L, "after_each",   l_after_each);
 
+    /* Override print() for stylized output */
+    lua_register(L, "print",        l_styled_print);
+
+    /* Spy factory */
+    lua_register(L, "spy",                l_spy);
+
     /* Assertions */
-    lua_register(L, "assert_eq",       l_assert_eq);
-    lua_register(L, "assert_ne",       l_assert_ne);
-    lua_register(L, "assert_true",     l_assert_true);
-    lua_register(L, "assert_false",    l_assert_false);
-    lua_register(L, "assert_nil",      l_assert_nil);
-    lua_register(L, "assert_not_nil",  l_assert_not_nil);
-    lua_register(L, "assert_error",    l_assert_error);
-    lua_register(L, "assert_gt",       l_assert_gt);
-    lua_register(L, "assert_gte",      l_assert_gte);
-    lua_register(L, "assert_lt",       l_assert_lt);
-    lua_register(L, "assert_lte",      l_assert_lte);
+    lua_register(L, "assert_eq",          l_assert_eq);
+    lua_register(L, "assert_ne",          l_assert_ne);
+    lua_register(L, "assert_true",        l_assert_true);
+    lua_register(L, "assert_false",       l_assert_false);
+    lua_register(L, "assert_nil",         l_assert_nil);
+    lua_register(L, "assert_not_nil",     l_assert_not_nil);
+    lua_register(L, "assert_error",       l_assert_error);
+    lua_register(L, "assert_gt",          l_assert_gt);
+    lua_register(L, "assert_gte",         l_assert_gte);
+    lua_register(L, "assert_lt",          l_assert_lt);
+    lua_register(L, "assert_lte",         l_assert_lte);
+    lua_register(L, "assert_called",      l_assert_called);
+    lua_register(L, "assert_not_called",  l_assert_not_called);
+    lua_register(L, "assert_called_with", l_assert_called_with);
 
     /* Mock state helpers */
     lua_register(L, "Mock_CreateEntity",   l_Mock_CreateEntity);

@@ -19,6 +19,7 @@ typedef struct {
     bool  passed;
     bool  ran;
     char  error_msg[512];
+    double duration_ms;             /* wall-clock time for this test */
 } TestCase;
 
 typedef struct {
