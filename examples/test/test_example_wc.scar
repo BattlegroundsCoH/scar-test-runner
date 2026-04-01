@@ -1,0 +1,106 @@
+-- Test: Annihilation Wincondition
+-- Tests for examples/mod/assets/scar/winconditions/example_wc.scar
+
+-- Load the wincondition script (Phase 1: DoFile)
+import("winconditions/example_wc.scar")
+
+describe("Annihilation Wincondition", function()
+
+    before_each(function()
+        -- Set up 2 players
+        Mock_CreatePlayer(1, 1)  -- Player 1, Team 1
+        Mock_CreatePlayer(2, 2)  -- Player 2, Team 2
+
+        -- Create entities for each player
+        Mock_CreateEntity(101, "infantry_squad", 10, 0, 10, 100)
+        Mock_SetEntityOwner(101, 1)
+        Mock_CreateEntity(102, "infantry_squad", 20, 0, 20, 100)
+        Mock_SetEntityOwner(102, 2)
+
+        -- Set up entity groups that the wincondition checks
+        EGroup_Create("player_1_entities")
+        EGroup_Add("player_1_entities", 101)
+
+        EGroup_Create("player_2_entities")
+        EGroup_Add("player_2_entities", 102)
+
+        -- Phase 2: Run init (calls _annihilation_init via Game_AddInit)
+        Scar_ForceInit()
+    end)
+
+    describe("initialization", function()
+        it("should detect 2 players", function()
+            assert_eq(2, _annihilation.player_count)
+        end)
+
+        it("should mark no one as eliminated initially", function()
+            assert_false(_annihilation_is_eliminated(1))
+            assert_false(_annihilation_is_eliminated(2))
+        end)
+
+        it("should have 2 survivors initially", function()
+            assert_eq(2, _annihilation_get_survivors())
+        end)
+    end)
+
+    describe("elimination check", function()
+        it("should eliminate a player with no entities", function()
+            -- Remove all entities from player 2's group
+            EGroup_Clear("player_2_entities")
+
+            -- Run the check
+            _annihilation_check()
+
+            assert_true(_annihilation_is_eliminated(2),
+                "Player 2 should be eliminated after losing all entities")
+            assert_false(_annihilation_is_eliminated(1),
+                "Player 1 should still be alive")
+        end)
+
+        it("should keep player alive if they have entities", function()
+            _annihilation_check()
+
+            assert_false(_annihilation_is_eliminated(1))
+            assert_false(_annihilation_is_eliminated(2))
+            assert_eq(2, _annihilation_get_survivors())
+        end)
+
+        it("should detect victory when only one survivor", function()
+            EGroup_Clear("player_2_entities")
+            _annihilation_check()
+
+            assert_eq(1, _annihilation_get_survivors(),
+                "Should have exactly 1 survivor")
+        end)
+    end)
+
+    describe("entity health tracking", function()
+        it("should allow checking entity health via mocks", function()
+            assert_eq(100, Entity_GetHealth(101))
+            Entity_SetHealth(101, 50)
+            assert_eq(50, Entity_GetHealth(101))
+        end)
+
+        it("should mark entity as dead at 0 health", function()
+            Entity_SetHealth(101, 0)
+            assert_false(Entity_IsAlive(101))
+        end)
+    end)
+
+    describe("rule system", function()
+        it("should have registered an interval rule", function()
+            assert_true(Rule_Exists(_annihilation_check),
+                "The check rule should be registered")
+        end)
+
+        it("should fire the check rule when time advances", function()
+            EGroup_Clear("player_2_entities")
+
+            -- Advance time past the 1-second interval
+            Mock_AdvanceTime(1.0)
+
+            -- The rule should have fired and detected elimination
+            assert_true(_annihilation_is_eliminated(2))
+        end)
+    end)
+end)

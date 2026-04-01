@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            cc: gcc
+          - os: macos-latest
+            cc: clang
+          - os: windows-latest
+            cc: cl
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure CMake
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Run example tests (Unix)
+        if: runner.os != 'Windows'
+        run: ./build/scar-test --scar-root examples/mod/assets/scar examples/test/
+
+      - name: Run example tests (Windows)
+        if: runner.os == 'Windows'
+        run: .\build\Release\scar-test.exe --scar-root examples\mod\assets\scar examples\test\

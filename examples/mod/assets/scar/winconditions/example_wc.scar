@@ -1,0 +1,60 @@
+-- Example Wincondition: Annihilation
+-- Players lose when all their entities are destroyed.
+
+_annihilation = {}
+
+function _annihilation_init()
+    _annihilation.player_count = World_GetPlayerCount()
+    _annihilation.eliminated = {}
+
+    for i = 1, _annihilation.player_count do
+        _annihilation.eliminated[i] = false
+    end
+
+    Rule_AddInterval(_annihilation_check, 1.0)
+end
+
+function _annihilation_check()
+    -- In a real game this would check actual entity counts.
+    -- For testing, we check if any player's entities are all dead.
+    for i = 1, _annihilation.player_count do
+        local player_id = World_GetPlayerAt(i)
+        if not _annihilation.eliminated[i] then
+            local has_alive = false
+            -- In a real implementation we'd iterate player entities.
+            -- For this mock example, we use a simple flag check.
+            if _annihilation_player_has_entities(player_id) then
+                has_alive = true
+            end
+            if not has_alive then
+                _annihilation.eliminated[i] = true
+            end
+        end
+    end
+end
+
+function _annihilation_player_has_entities(player_id)
+    -- Check a known EGroup for this player
+    local eg_name = "player_" .. player_id .. "_entities"
+    -- If the group doesn't exist or is empty, player has no entities
+    local ok, count = pcall(EGroup_Count, eg_name)
+    if not ok then return false end
+    return count > 0
+end
+
+function _annihilation_is_eliminated(player_index)
+    return _annihilation.eliminated[player_index] == true
+end
+
+function _annihilation_get_survivors()
+    local count = 0
+    for i = 1, _annihilation.player_count do
+        if not _annihilation.eliminated[i] then
+            count = count + 1
+        end
+    end
+    return count
+end
+
+-- Register init
+Game_AddInit(_annihilation_init)
