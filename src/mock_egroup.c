@@ -3,6 +3,7 @@
 #include "lauxlib.h"
 
 #include <string.h>
+#include <stdio.h>
 
 static int l_EGroup_Create(lua_State* L) {
     const char* name = luaL_checkstring(L, 1);
@@ -83,6 +84,47 @@ static int l_EGroup_Destroy(lua_State* L) {
     return 0;
 }
 
+/* EGroup_ForEach(egroup, func) — calls func(egroup, index, entity) for each entity */
+static int l_EGroup_ForEach(lua_State* L) {
+    MockEGroup* eg = check_egroup(L, 1);
+    luaL_checktype(L, 2, LUA_TFUNCTION);
+    for (int i = 0; i < eg->count; i++) {
+        lua_pushvalue(L, 2);           /* func */
+        lua_pushvalue(L, 1);           /* egroup */
+        lua_pushinteger(L, i + 1);     /* 1-based index */
+        push_entity(L, eg->entity_ids[i]);
+        if (lua_pcall(L, 3, 0, 0) != LUA_OK) {
+            return luaL_error(L, "EGroup_ForEach: %s", lua_tostring(L, -1));
+        }
+    }
+    return 0;
+}
+
+/* EGroup_CreateUnique() — returns a new unique empty EGroup */
+static int l_EGroup_CreateUnique(lua_State* L) {
+    GameState* gs = game_state_from_lua(L);
+    char name[MAX_BLUEPRINT_LEN];
+    snprintf(name, sizeof(name), "__egroup_unique_%d", gs->egroup_unique_counter++);
+    MockEGroup* eg = game_state_add_egroup(gs, name);
+    if (!eg) {
+        return luaL_error(L, "EGroup_CreateUnique: maximum egroup count reached");
+    }
+    push_egroup(L, eg->name);
+    return 1;
+}
+
+/* EGroup_SetInvulnerable(egroup, invulnerable, time) */
+static int l_EGroup_SetInvulnerable(lua_State* L) {
+    MockEGroup* eg = check_egroup(L, 1);
+    int invuln = lua_toboolean(L, 2);
+    GameState* gs = game_state_from_lua(L);
+    for (int i = 0; i < eg->count; i++) {
+        MockEntity* e = game_state_get_entity(gs, eg->entity_ids[i]);
+        if (e) e->invulnerable = invuln;
+    }
+    return 0;
+}
+
 void mock_egroup_register(lua_State* L) {
     lua_register(L, "EGroup_Create",         l_EGroup_Create);
     lua_register(L, "EGroup_Add",            l_EGroup_Add);
@@ -90,7 +132,10 @@ void mock_egroup_register(lua_State* L) {
     lua_register(L, "EGroup_Clear",          l_EGroup_Clear);
     lua_register(L, "EGroup_ContainsEntity", l_EGroup_ContainsEntity);
     lua_register(L, "EGroup_GetEntityAt",    l_EGroup_GetEntityAt);
-    lua_register(L, "EGroup_Destroy",        l_EGroup_Destroy);
+    lua_register(L, "EGroup_Destroy",         l_EGroup_Destroy);
+    lua_register(L, "EGroup_ForEach",          l_EGroup_ForEach);
+    lua_register(L, "EGroup_CreateUnique",     l_EGroup_CreateUnique);
+    lua_register(L, "EGroup_SetInvulnerable",  l_EGroup_SetInvulnerable);
 
     /* EGroup_CreateIfNotFound is a common alias */
     lua_register(L, "EGroup_CreateIfNotFound", l_EGroup_Create);

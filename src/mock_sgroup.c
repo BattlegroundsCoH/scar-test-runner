@@ -81,6 +81,45 @@ static int l_SGroup_Destroy(lua_State* L) {
     return 0;
 }
 
+/* SGroup_ForEach(sgroup, func) — calls func(sgroup, index, squad) for each squad */
+static int l_SGroup_ForEach(lua_State* L) {
+    MockSGroup* sg = check_sgroup(L, 1);
+    luaL_checktype(L, 2, LUA_TFUNCTION);
+    for (int i = 0; i < sg->count; i++) {
+        lua_pushvalue(L, 2);           /* func */
+        lua_pushvalue(L, 1);           /* sgroup */
+        lua_pushinteger(L, i + 1);     /* 1-based index */
+        push_squad(L, sg->squad_ids[i]);
+        if (lua_pcall(L, 3, 0, 0) != LUA_OK) {
+            return luaL_error(L, "SGroup_ForEach: %s", lua_tostring(L, -1));
+        }
+    }
+    return 0;
+}
+
+static int l_noop_sgroup(lua_State* L) {
+    (void)L;
+    return 0;
+}
+
+static int l_noop_sgroup_false(lua_State* L) {
+    (void)L;
+    lua_pushboolean(L, 0);
+    return 1;
+}
+
+/* SGroup_SetInvulnerable(sgroup, invulnerable, time) */
+static int l_SGroup_SetInvulnerable(lua_State* L) {
+    MockSGroup* sg = check_sgroup(L, 1);
+    int invuln = lua_toboolean(L, 2);
+    GameState* gs = game_state_from_lua(L);
+    for (int i = 0; i < sg->count; i++) {
+        MockSquad* s = game_state_get_squad(gs, sg->squad_ids[i]);
+        if (s) s->invulnerable = invuln;
+    }
+    return 0;
+}
+
 void mock_sgroup_register(lua_State* L) {
     lua_register(L, "SGroup_Create",        l_SGroup_Create);
     lua_register(L, "SGroup_Add",           l_SGroup_Add);
@@ -88,7 +127,12 @@ void mock_sgroup_register(lua_State* L) {
     lua_register(L, "SGroup_Clear",         l_SGroup_Clear);
     lua_register(L, "SGroup_ContainsSquad", l_SGroup_ContainsSquad);
     lua_register(L, "SGroup_GetSquadAt",    l_SGroup_GetSquadAt);
-    lua_register(L, "SGroup_Destroy",       l_SGroup_Destroy);
+    lua_register(L, "SGroup_Destroy",         l_SGroup_Destroy);
+    lua_register(L, "SGroup_ForEach",          l_SGroup_ForEach);
+    lua_register(L, "SGroup_SetInvulnerable",  l_SGroup_SetInvulnerable);
 
     lua_register(L, "SGroup_CreateIfNotFound", l_SGroup_Create);
+    lua_register(L, "SGroup_GetSpawnedSquadAt", l_SGroup_GetSquadAt);
+    lua_register(L, "SGroup_SetSelectable",     l_noop_sgroup);
+    lua_register(L, "SGroup_IsHoldingAny",      l_noop_sgroup_false);
 }

@@ -9,6 +9,9 @@
 #include "mock_sgroup.h"
 #include "mock_game.h"
 #include "mock_misc.h"
+#include "mock_core.h"
+#include "mock_blueprint.h"
+#include "mock_territory.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -62,6 +65,38 @@ static int resolve_scar_path(lua_State* L, const char* path, char* resolved, siz
     return 0;
 }
 
+/* ── Built-in engine stubs ────────────────────────────────────────
+ * These paths are known CoH3 engine .scar files whose functions are
+ * already provided by the C mock layer.  When an import() cannot be
+ * resolved on disk, any path listed here is silently skipped instead
+ * of producing an error.  This removes the need for consumers to
+ * ship or reference copies of the copyrighted engine scripts.
+ * ─────────────────────────────────────────────────────────────────── */
+
+static const char* const builtin_stubs[] = {
+    "scarutil.scar",
+    "core.scar",
+    "game_modifiers.scar",
+    "ui/ticket_ui.scar",
+    "audio/audio.scar",
+    "ai/ai_match_observer.scar",
+    NULL
+};
+
+static int is_builtin_stub(const char* path) {
+    /* Normalize separators for comparison */
+    char norm[256];
+    size_t len = strlen(path);
+    if (len >= sizeof(norm)) return 0;
+    for (size_t i = 0; i <= len; i++)
+        norm[i] = (path[i] == '\\') ? '/' : path[i];
+
+    for (const char* const* s = builtin_stubs; *s; s++) {
+        if (strcmp(norm, *s) == 0) return 1;
+    }
+    return 0;
+}
+
 /* ── import() implementation ─────────────────────────────────────── */
 
 static int l_import(lua_State* L) {
@@ -69,7 +104,7 @@ static int l_import(lua_State* L) {
 
     /* Resolve the import path (scar_root first, then scar_data) */
     char fullpath[1024];
-    resolve_scar_path(L, path, fullpath, sizeof(fullpath));
+    int found = resolve_scar_path(L, path, fullpath, sizeof(fullpath));
 
     /* Check if already loaded (use a registry table to track imports) */
     lua_getfield(L, LUA_REGISTRYINDEX, "scar_imported_files");
@@ -90,6 +125,14 @@ static int l_import(lua_State* L) {
     lua_pushboolean(L, 1);
     lua_setfield(L, -2, fullpath);
     lua_pop(L, 1); /* pop imports table */
+
+    /* If the file wasn't found on disk, check built-in stubs */
+    if (!found) {
+        if (is_builtin_stub(path)) {
+            return 0; /* silently skip — C mocks provide everything */
+        }
+        return luaL_error(L, "import('%s'): file not found", path);
+    }
 
     /* Load and execute the file */
     if (luaL_dofile(L, fullpath) != LUA_OK) {
@@ -162,6 +205,9 @@ lua_State* scar_state_new(const char* scar_root, const char* scar_data, GameStat
     mock_sgroup_register(L);
     mock_game_register(L);
     mock_misc_register(L);
+    mock_core_register(L);
+    mock_blueprint_register(L);
+    mock_territory_register(L);
 
     return L;
 }

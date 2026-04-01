@@ -18,8 +18,9 @@ static void print_usage(const char* prog) {
     printf("Options:\n");
     printf("  --scar-root <path>  Base path for resolving import() calls\n");
     printf("                      (default: current directory)\n");
-    printf("  --scar-data <path>  Fallback path for game .scar files\n");
-    printf("                      (e.g. extracted CoH3 scar data)\n");
+    printf("  --scar-data <path>  Extra fallback path for resolving imports\n");
+    printf("                      (optional; engine .scar files are handled\n");
+    printf("                      automatically via built-in stubs)\n");
     printf("  --help              Show this help message\n");
     printf("\n");
     printf("Arguments:\n");

@@ -19,6 +19,9 @@ set(SCAR_TEST_SOURCES
     src/mock_sgroup.c
     src/mock_game.c
     src/mock_misc.c
+    src/mock_core.c
+    src/mock_blueprint.c
+    src/mock_territory.c
 )
 
 add_executable(scar-test ${SCAR_TEST_SOURCES})

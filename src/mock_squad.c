@@ -149,6 +149,72 @@ static int l_Squad_FromWorldID(lua_State* L) {
     return 1;
 }
 
+static int l_Squad_DeSpawn(lua_State* L) {
+    MockSquad* s = check_squad(L, 1);
+    s->spawned = false;
+    return 0;
+}
+
+static int l_Squad_IsVehicleSquad(lua_State* L) {
+    MockSquad* s = check_squad(L, 1);
+    lua_pushboolean(L, s->is_vehicle);
+    return 1;
+}
+
+static int l_Squad_IsUnderAttack(lua_State* L) {
+    (void)check_squad(L, 1);
+    lua_pushboolean(L, 0); /* Always false in mock */
+    return 1;
+}
+
+static int l_Squad_IsRetreating(lua_State* L) {
+    (void)check_squad(L, 1);
+    lua_pushboolean(L, 0);
+    return 1;
+}
+
+static int l_Squad_GetVeterancy(lua_State* L) {
+    MockSquad* s = check_squad(L, 1);
+    lua_pushnumber(L, s->veterancy);
+    return 1;
+}
+
+static int l_Squad_GetID(lua_State* L) {
+    int id = check_squad_id(L, 1);
+    lua_pushinteger(L, id);
+    return 1;
+}
+
+static int l_Squad_EntityAt(lua_State* L) {
+    MockSquad* s = check_squad(L, 1);
+    int index = (int)luaL_checkinteger(L, 2);
+    /* SCAR uses 0-based indexing for Squad_EntityAt */
+    if (index < 0 || index >= s->entity_count) {
+        return luaL_error(L, "Squad_EntityAt: index %d out of range (0..%d)", index, s->entity_count - 1);
+    }
+    push_entity(L, s->entity_ids[index]);
+    return 1;
+}
+
+static int l_Squad_GetMaxHealth(lua_State* L) {
+    MockSquad* s = check_squad(L, 1);
+    GameState* gs = game_state_from_lua(L);
+    float total = 0.0f;
+    for (int i = 0; i < s->entity_count; i++) {
+        MockEntity* e = game_state_get_entity(gs, s->entity_ids[i]);
+        if (e) total += e->health_max;
+    }
+    lua_pushnumber(L, total);
+    return 1;
+}
+
+static int l_Squad_IncreaseVeterancy(lua_State* L) {
+    MockSquad* s = check_squad(L, 1);
+    float amount = (float)luaL_checknumber(L, 2);
+    s->veterancy += amount;
+    return 0;
+}
+
 void mock_squad_register(lua_State* L) {
     lua_register(L, "Squad_GetHealth",       l_Squad_GetHealth);
     lua_register(L, "Squad_SetHealth",       l_Squad_SetHealth);
@@ -162,6 +228,15 @@ void mock_squad_register(lua_State* L) {
     lua_register(L, "Squad_WarpToPos",       l_Squad_WarpToPos);
     lua_register(L, "Squad_GetBlueprint",    l_Squad_GetBlueprint);
     lua_register(L, "Squad_Kill",            l_Squad_Kill);
-    lua_register(L, "Squad_GetGameID",       l_Squad_GetGameID);
-    lua_register(L, "Squad_FromWorldID",     l_Squad_FromWorldID);
+    lua_register(L, "Squad_GetGameID",         l_Squad_GetGameID);
+    lua_register(L, "Squad_FromWorldID",       l_Squad_FromWorldID);
+    lua_register(L, "Squad_DeSpawn",           l_Squad_DeSpawn);
+    lua_register(L, "Squad_IsVehicleSquad",    l_Squad_IsVehicleSquad);
+    lua_register(L, "Squad_IsUnderAttack",     l_Squad_IsUnderAttack);
+    lua_register(L, "Squad_IsRetreating",      l_Squad_IsRetreating);
+    lua_register(L, "Squad_GetVeterancy",      l_Squad_GetVeterancy);
+    lua_register(L, "Squad_GetID",             l_Squad_GetID);
+    lua_register(L, "Squad_EntityAt",          l_Squad_EntityAt);
+    lua_register(L, "Squad_GetMaxHealth",      l_Squad_GetMaxHealth);
+    lua_register(L, "Squad_IncreaseVeterancy", l_Squad_IncreaseVeterancy);
 }

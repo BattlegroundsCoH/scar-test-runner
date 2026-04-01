@@ -19,6 +19,11 @@
 #define MAX_GROUP_ITEMS 256
 #define MAX_SQUAD_ENTITIES 32
 #define MAX_BLUEPRINT_LEN 128
+#define MAX_CORE_MODULES 32
+#define MAX_GLOBAL_EVENT_RULES 128
+#define MAX_TERRITORIES 64
+#define MAX_STRATEGY_POINTS 64
+#define MAX_DISPLAY_NAME_LEN 128
 
 /* ── Position ────────────────────────────────────────────────────── */
 
@@ -37,6 +42,9 @@ typedef struct {
     char  blueprint[MAX_BLUEPRINT_LEN];
     bool  invulnerable;
     bool  alive;
+    bool  is_victory_point;
+    bool  is_vehicle;
+    bool  spawned;
 } MockEntity;
 
 /* ── Mock Squad ──────────────────────────────────────────────────── */
@@ -50,6 +58,9 @@ typedef struct {
     char  blueprint[MAX_BLUEPRINT_LEN];
     bool  invulnerable;
     bool  alive;
+    bool  is_vehicle;
+    bool  spawned;
+    float veterancy;
 } MockSquad;
 
 /* ── Mock Player ─────────────────────────────────────────────────── */
@@ -66,6 +77,13 @@ typedef struct {
     PlayerResources resources;
     int   population_cap;
     int   population_current;
+    bool  is_human;
+    char  display_name[MAX_DISPLAY_NAME_LEN];
+    char  race_name[MAX_BLUEPRINT_LEN];
+    Position starting_position;
+    bool  has_starting_position;
+    bool  won;
+    bool  lost;
 } MockPlayer;
 
 /* ── Mock EGroup ─────────────────────────────────────────────────── */
@@ -99,6 +117,34 @@ typedef struct {
     bool     active;
 } MockRule;
 
+/* ── Global event rule ───────────────────────────────────────────── */
+
+typedef struct {
+    int  lua_func_ref;
+    int  event_type;
+    bool active;
+} GlobalEventRule;
+
+/* ── Core module ─────────────────────────────────────────────────── */
+
+typedef struct {
+    char name[MAX_BLUEPRINT_LEN];
+} CoreModule;
+
+/* ── Territory / Strategy Point ──────────────────────────────────── */
+
+typedef struct {
+    int      sector_id;
+    int      owner_player_id;
+    Position position;
+} MockTerritory;
+
+typedef struct {
+    int  entity_id;
+    int  sector_id;
+    bool is_victory_point;
+} StrategyPoint;
+
 /* ── Game State ──────────────────────────────────────────────────── */
 
 typedef struct {
@@ -124,7 +170,31 @@ typedef struct {
     MockRule    rules[MAX_RULES];
     int         rule_count;
 
+    /* Global event rules */
+    GlobalEventRule global_event_rules[MAX_GLOBAL_EVENT_RULES];
+    int         global_event_count;
+
+    /* Core modules */
+    CoreModule  core_modules[MAX_CORE_MODULES];
+    int         core_module_count;
+
+    /* Territories */
+    MockTerritory territories[MAX_TERRITORIES];
+    int         territory_count;
+
+    /* Strategy points */
+    StrategyPoint strategy_points[MAX_STRATEGY_POINTS];
+    int         strategy_point_count;
+
     float       game_time;
+    bool        game_over;
+    int         game_over_reason;
+
+    /* Auto-increment ID for Entity_Create */
+    int         next_auto_entity_id;
+
+    /* EGroup auto-name counter */
+    int         egroup_unique_counter;
 } GameState;
 
 /* ── API ─────────────────────────────────────────────────────────── */
@@ -150,6 +220,9 @@ MockSquad*  game_state_add_squad(GameState* gs, int id);
 MockPlayer* game_state_add_player(GameState* gs, int id);
 MockEGroup* game_state_add_egroup(GameState* gs, const char* name);
 MockSGroup* game_state_add_sgroup(GameState* gs, const char* name);
+
+/* Removal */
+void        game_state_remove_entity(GameState* gs, int id);
 
 /* Helper: push Position table onto Lua stack */
 void        push_position(lua_State* L, Position pos);

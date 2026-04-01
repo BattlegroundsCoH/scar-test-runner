@@ -374,6 +374,12 @@ static int l_Mock_CreateSquad(lua_State* L) {
 static int l_Mock_CreatePlayer(lua_State* L) {
     int id = (int)luaL_checkinteger(L, 1);
     int team_id = (int)luaL_optinteger(L, 2, 0);
+    const char* name = luaL_optstring(L, 3, "");
+    const char* race = luaL_optstring(L, 4, "");
+    int is_human = 1;
+    if (lua_gettop(L) >= 5) {
+        is_human = lua_toboolean(L, 5);
+    }
 
     GameState* gs = game_state_from_lua(L);
     if (game_state_get_player(gs, id)) {
@@ -384,6 +390,9 @@ static int l_Mock_CreatePlayer(lua_State* L) {
         return luaL_error(L, "Mock_CreatePlayer: maximum player count reached");
     }
     p->team_id = team_id;
+    strncpy(p->display_name, name, MAX_DISPLAY_NAME_LEN - 1);
+    strncpy(p->race_name, race, MAX_BLUEPRINT_LEN - 1);
+    p->is_human = is_human;
 
     push_player(L, id);
     return 1;
@@ -458,6 +467,135 @@ static int l_Scar_ForceGameSetup(lua_State* L) {
     } else {
         lua_pop(L, 1);
     }
+    return 0;
+}
+
+static int l_Scar_ForceStart(lua_State* L) {
+    /* Calls Core_CallDelegateFunctions("OnGameSetup") then all init funcs,
+       then Core_CallDelegateFunctions("OnInit") */
+    GameState* gs = game_state_from_lua(L);
+
+    /* OnGameSetup delegates */
+    lua_getglobal(L, "Core_CallDelegateFunctions");
+    if (lua_isfunction(L, -1)) {
+        lua_pushstring(L, "OnGameSetup");
+        lua_call(L, 1, 0);
+    } else {
+        lua_pop(L, 1);
+    }
+
+    /* Run registered init functions */
+    for (int i = 0; i < gs->init_func_count; i++) {
+        lua_rawgeti(L, LUA_REGISTRYINDEX, gs->init_func_refs[i]);
+        if (lua_pcall(L, 0, 0, 0) != LUA_OK) {
+            const char* err = lua_tostring(L, -1);
+            fprintf(stderr, "Error in init function %d: %s\n", i, err);
+            lua_pop(L, 1);
+        }
+    }
+
+    /* OnInit delegates */
+    lua_getglobal(L, "Core_CallDelegateFunctions");
+    if (lua_isfunction(L, -1)) {
+        lua_pushstring(L, "OnInit");
+        lua_call(L, 1, 0);
+    } else {
+        lua_pop(L, 1);
+    }
+
+    return 0;
+}
+
+/* ── Mock_FireGlobalEvent ────────────────────────────────────────── */
+
+static int l_Mock_FireGlobalEvent(lua_State* L) {
+    int event_type = (int)luaL_checkinteger(L, 1);
+    int nargs = lua_gettop(L) - 1;
+    GameState* gs = game_state_from_lua(L);
+
+    /* Build a context table from remaining args */
+    for (int i = 0; i < gs->global_event_count; i++) {
+        GlobalEventRule* r = &gs->global_event_rules[i];
+        if (!r->active || r->event_type != event_type) continue;
+
+        lua_rawgeti(L, LUA_REGISTRYINDEX, r->lua_func_ref);
+        /* Push context: a table with the extra args */
+        lua_createtable(L, 0, nargs);
+        for (int a = 0; a < nargs; a++) {
+            lua_pushvalue(L, 2 + a);
+            lua_rawseti(L, -2, a + 1);
+        }
+        if (lua_pcall(L, 1, 0, 0) != LUA_OK) {
+            const char* err = lua_tostring(L, -1);
+            fprintf(stderr, "Mock_FireGlobalEvent: error: %s\n", err);
+            lua_pop(L, 1);
+        }
+    }
+    return 0;
+}
+
+/* ── Mock_CreateTerritory ────────────────────────────────────────── */
+
+static int l_Mock_CreateTerritory(lua_State* L) {
+    int sector_id = (int)luaL_checkinteger(L, 1);
+    int owner_player_id = (int)luaL_optinteger(L, 2, -1);
+    float x = (float)luaL_optnumber(L, 3, 0.0);
+    float y = (float)luaL_optnumber(L, 4, 0.0);
+    float z = (float)luaL_optnumber(L, 5, 0.0);
+
+    GameState* gs = game_state_from_lua(L);
+    if (gs->territory_count >= MAX_TERRITORIES) {
+        return luaL_error(L, "Mock_CreateTerritory: max territories reached");
+    }
+    MockTerritory* t = &gs->territories[gs->territory_count++];
+    t->sector_id = sector_id;
+    t->owner_player_id = owner_player_id;
+    t->position.x = x;
+    t->position.y = y;
+    t->position.z = z;
+    return 0;
+}
+
+/* ── Mock_CreateStrategyPoint ────────────────────────────────────── */
+
+static int l_Mock_CreateStrategyPoint(lua_State* L) {
+    int entity_id = check_entity_id(L, 1);
+    int sector_id = (int)luaL_checkinteger(L, 2);
+    int is_vp = lua_toboolean(L, 3);
+
+    GameState* gs = game_state_from_lua(L);
+    if (gs->strategy_point_count >= MAX_STRATEGY_POINTS) {
+        return luaL_error(L, "Mock_CreateStrategyPoint: max strategy points reached");
+    }
+    StrategyPoint* sp = &gs->strategy_points[gs->strategy_point_count++];
+    sp->entity_id = entity_id;
+    sp->sector_id = sector_id;
+    sp->is_victory_point = is_vp;
+
+    /* Also set the entity's is_victory_point flag */
+    MockEntity* e = game_state_get_entity(gs, entity_id);
+    if (e) {
+        e->is_victory_point = is_vp;
+    }
+
+    return 0;
+}
+
+/* ── Mock_SetPlayerStartingPosition ──────────────────────────────── */
+
+static int l_Mock_SetPlayerStartingPosition(lua_State* L) {
+    int player_id = check_player_id(L, 1);
+    float x = (float)luaL_checknumber(L, 2);
+    float y = (float)luaL_checknumber(L, 3);
+    float z = (float)luaL_checknumber(L, 4);
+
+    GameState* gs = game_state_from_lua(L);
+    MockPlayer* p = game_state_get_player(gs, player_id);
+    if (!p) return luaL_error(L, "Mock_SetPlayerStartingPosition: player %d not found", player_id);
+    p->starting_position.x = x;
+    p->starting_position.y = y;
+    p->starting_position.z = z;
+    p->has_starting_position = true;
     return 0;
 }
 
@@ -649,8 +787,13 @@ void test_api_register(lua_State* L, TestSuite* ts) {
     lua_register(L, "Mock_SetEntityOwner", l_Mock_SetEntityOwner);
     lua_register(L, "Mock_SetSquadOwner",  l_Mock_SetSquadOwner);
     lua_register(L, "Mock_AdvanceTime",    l_Mock_AdvanceTime);
+    lua_register(L, "Mock_FireGlobalEvent", l_Mock_FireGlobalEvent);
+    lua_register(L, "Mock_CreateTerritory", l_Mock_CreateTerritory);
+    lua_register(L, "Mock_CreateStrategyPoint", l_Mock_CreateStrategyPoint);
+    lua_register(L, "Mock_SetPlayerStartingPosition", l_Mock_SetPlayerStartingPosition);
 
     /* SCAR lifecycle */
     lua_register(L, "Scar_ForceInit",      l_Scar_ForceInit);
     lua_register(L, "Scar_ForceGameSetup", l_Scar_ForceGameSetup);
+    lua_register(L, "Scar_ForceStart",     l_Scar_ForceStart);
 }

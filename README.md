@@ -19,9 +19,6 @@ Run tests:
 
 # Directory (discovers test_*.scar and *_test.scar files)
 ./scar-test --scar-root my_mod/assets/scar tests/
-
-# With game data for engine .scar imports (e.g. scarutil.scar, table.scar)
-./scar-test --scar-root my_mod/assets/scar --scar-data path/to/coh3-scar/scar tests/
 ```
 
 ## CLI
@@ -31,11 +28,11 @@ scar-test [options] <file_or_directory>
 
 Options:
   --scar-root <path>   Base path for resolving import() calls (default: cwd)
-  --scar-data <path>   Fallback path for game .scar files (e.g. extracted CoH3 data)
+  --scar-data <path>   Extra fallback path for resolving imports (optional)
   --help               Show help
 ```
 
-`import()` resolves files from `--scar-root` first. If the file isn't found there and `--scar-data` is set, it falls back to the game data path. This lets your mod scripts `import("scarutil.scar")` or `import("table.scar")` and load the real engine utilities alongside your mocked API.
+`import()` resolves files from `--scar-root` first. Common engine scripts (`scarutil.scar`, `core.scar`, `game_modifiers.scar`, etc.) have built-in stubs — their functions are already provided by the C mock layer, so no copies of copyrighted game files are needed. If you need to import additional `.scar` files that aren't in your mod, you can optionally use `--scar-data` as a secondary search path.
 
 ## Writing tests
 
@@ -68,7 +65,7 @@ end)
 
 ### Test lifecycle
 
-1. **`import()`** loads your production `.scar` files (resolved from `--scar-root`, with fallback to `--scar-data` for engine files).
+1. **`import()`** loads your production `.scar` files (resolved from `--scar-root`; engine scripts like `scarutil.scar` are handled by built-in stubs).
 2. **`describe` / `it` / `before_each` / `after_each`** register the test tree.
 3. **`Mock_Create*`** functions set up game state for each test.
 4. **`Scar_ForceInit()`** fires all `Game_AddInit` callbacks (just like the engine does on match start).
@@ -145,12 +142,7 @@ jobs:
         run: ./scar-test --scar-root my_mod/assets/scar tests/
 ```
 
-If your mod imports game utility scripts (e.g. `scarutil.scar`), add `--scar-data` pointing to extracted CoH3 scar files:
-
-```yaml
-      - name: Run SCAR tests
-        run: ./scar-test --scar-root my_mod/assets/scar --scar-data coh3-scar/scar tests/
-```
+Common engine imports like `scarutil.scar` and `core.scar` are handled automatically by built-in stubs — no game files needed.
 
 ## Project structure
 

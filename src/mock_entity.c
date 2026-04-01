@@ -141,6 +141,73 @@ static int l_Entity_GetSquad(lua_State* L) {
     return 1;
 }
 
+static int l_Entity_IsVictoryPoint(lua_State* L) {
+    MockEntity* e = check_entity(L, 1);
+    lua_pushboolean(L, e->is_victory_point);
+    return 1;
+}
+
+static int l_Entity_Destroy(lua_State* L) {
+    int id = check_entity_id(L, 1);
+    GameState* gs = game_state_from_lua(L);
+    MockEntity* e = game_state_get_entity(gs, id);
+    if (e) {
+        e->alive = false;
+        e->health = 0.0f;
+    }
+    return 0;
+}
+
+static int l_Entity_IsVehicle(lua_State* L) {
+    MockEntity* e = check_entity(L, 1);
+    lua_pushboolean(L, e->is_vehicle);
+    return 1;
+}
+
+static int l_Entity_IsPartOfSquad(lua_State* L) {
+    MockEntity* e = check_entity(L, 1);
+    GameState* gs = game_state_from_lua(L);
+    for (int i = 0; i < gs->squad_count; i++) {
+        for (int j = 0; j < gs->squads[i].entity_count; j++) {
+            if (gs->squads[i].entity_ids[j] == e->id) {
+                lua_pushboolean(L, 1);
+                return 1;
+            }
+        }
+    }
+    lua_pushboolean(L, 0);
+    return 1;
+}
+
+static int l_Entity_Create(lua_State* L) {
+    /* Entity_Create(blueprint, player, pos) */
+    const char* bp = luaL_checkstring(L, 1);
+    int player_id = check_player_id(L, 2);
+    GameState* gs = game_state_from_lua(L);
+    int id = ++gs->next_auto_entity_id + 10000;
+    MockEntity* e = game_state_add_entity(gs, id);
+    if (!e) return luaL_error(L, "Entity_Create: max entities reached");
+    strncpy(e->blueprint, bp, MAX_BLUEPRINT_LEN - 1);
+    e->player_owner_id = player_id;
+    if (lua_gettop(L) >= 3) {
+        e->position = read_position(L, 3);
+    }
+    push_entity(L, id);
+    return 1;
+}
+
+static int l_Entity_Spawn(lua_State* L) {
+    MockEntity* e = check_entity(L, 1);
+    e->spawned = true;
+    return 0;
+}
+
+static int l_Entity_DeSpawn(lua_State* L) {
+    MockEntity* e = check_entity(L, 1);
+    e->spawned = false;
+    return 0;
+}
+
 void mock_entity_register(lua_State* L) {
     lua_register(L, "Entity_GetHealth",           l_Entity_GetHealth);
     lua_register(L, "Entity_SetHealth",           l_Entity_SetHealth);
@@ -159,4 +226,11 @@ void mock_entity_register(lua_State* L) {
     lua_register(L, "Entity_GetGameID",           l_Entity_GetGameID);
     lua_register(L, "Entity_FromWorldID",         l_Entity_FromWorldID);
     lua_register(L, "Entity_GetSquad",            l_Entity_GetSquad);
+    lua_register(L, "Entity_IsVictoryPoint",      l_Entity_IsVictoryPoint);
+    lua_register(L, "Entity_Destroy",             l_Entity_Destroy);
+    lua_register(L, "Entity_IsVehicle",           l_Entity_IsVehicle);
+    lua_register(L, "Entity_IsPartOfSquad",       l_Entity_IsPartOfSquad);
+    lua_register(L, "Entity_Create",              l_Entity_Create);
+    lua_register(L, "Entity_Spawn",               l_Entity_Spawn);
+    lua_register(L, "Entity_DeSpawn",             l_Entity_DeSpawn);
 }

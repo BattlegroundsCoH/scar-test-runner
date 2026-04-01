@@ -23,6 +23,11 @@ void game_state_reset(GameState* gs, lua_State* L) {
             luaL_unref(L, LUA_REGISTRYINDEX, gs->rules[i].lua_func_ref);
         }
     }
+    for (int i = 0; i < gs->global_event_count; i++) {
+        if (gs->global_event_rules[i].lua_func_ref != LUA_NOREF) {
+            luaL_unref(L, LUA_REGISTRYINDEX, gs->global_event_rules[i].lua_func_ref);
+        }
+    }
 
     /* Preserve init funcs */
     int saved_init_count = gs->init_func_count;
@@ -107,6 +112,7 @@ MockEntity* game_state_add_entity(GameState* gs, int id) {
     memset(e, 0, sizeof(MockEntity));
     e->id = id;
     e->alive = true;
+    e->spawned = true;
     e->health = 1.0f;
     e->health_max = 1.0f;
     return e;
@@ -118,6 +124,7 @@ MockSquad* game_state_add_squad(GameState* gs, int id) {
     memset(s, 0, sizeof(MockSquad));
     s->id = id;
     s->alive = true;
+    s->spawned = true;
     return s;
 }
 
@@ -127,6 +134,7 @@ MockPlayer* game_state_add_player(GameState* gs, int id) {
     memset(p, 0, sizeof(MockPlayer));
     p->id = id;
     p->population_cap = 100;
+    p->is_human = true;
     return p;
 }
 
@@ -144,6 +152,21 @@ MockSGroup* game_state_add_sgroup(GameState* gs, const char* name) {
     memset(sg, 0, sizeof(MockSGroup));
     strncpy(sg->name, name, MAX_BLUEPRINT_LEN - 1);
     return sg;
+}
+
+/* ── Removal ─────────────────────────────────────────────────────── */
+
+void game_state_remove_entity(GameState* gs, int id) {
+    for (int i = 0; i < gs->entity_count; i++) {
+        if (gs->entities[i].id == id) {
+            /* Shift remaining elements down */
+            for (int j = i; j < gs->entity_count - 1; j++) {
+                gs->entities[j] = gs->entities[j + 1];
+            }
+            gs->entity_count--;
+            return;
+        }
+    }
 }
 
 /* ── Position helpers ────────────────────────────────────────────── */
