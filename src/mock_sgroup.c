@@ -14,12 +14,12 @@ static int l_SGroup_Create(lua_State* L) {
             return luaL_error(L, "SGroup_Create: maximum sgroup count reached");
         }
     }
-    lua_pushstring(L, sg->name);
+    push_sgroup(L, sg->name);
     return 1;
 }
 
 static MockSGroup* check_sgroup(lua_State* L, int arg_idx) {
-    const char* name = luaL_checkstring(L, arg_idx);
+    const char* name = check_sgroup_name(L, arg_idx);
     GameState* gs = game_state_from_lua(L);
     MockSGroup* sg = game_state_get_sgroup(gs, name);
     if (!sg) {
@@ -30,7 +30,7 @@ static MockSGroup* check_sgroup(lua_State* L, int arg_idx) {
 
 static int l_SGroup_Add(lua_State* L) {
     MockSGroup* sg = check_sgroup(L, 1);
-    int squad_id = (int)luaL_checkinteger(L, 2);
+    int squad_id = check_squad_id(L, 2);
     if (sg->count >= MAX_GROUP_ITEMS) {
         return luaL_error(L, "SGroup_Add: group '%s' is full", sg->name);
     }
@@ -52,7 +52,7 @@ static int l_SGroup_Clear(lua_State* L) {
 
 static int l_SGroup_ContainsSquad(lua_State* L) {
     MockSGroup* sg = check_sgroup(L, 1);
-    int squad_id = (int)luaL_checkinteger(L, 2);
+    int squad_id = check_squad_id(L, 2);
     for (int i = 0; i < sg->count; i++) {
         if (sg->squad_ids[i] == squad_id) {
             lua_pushboolean(L, 1);
@@ -70,7 +70,7 @@ static int l_SGroup_GetSquadAt(lua_State* L) {
     if (index < 1 || index > sg->count) {
         return luaL_error(L, "SGroup_GetSquadAt: index %d out of range (1..%d)", index, sg->count);
     }
-    lua_pushinteger(L, sg->squad_ids[index - 1]);
+    push_squad(L, sg->squad_ids[index - 1]);
     return 1;
 }
 

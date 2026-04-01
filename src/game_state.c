@@ -173,3 +173,151 @@ Position read_position(lua_State* L, int idx) {
     }
     return pos;
 }
+
+/* ── Typed userdata helpers ──────────────────────────────────────── */
+
+void push_entity(lua_State* L, int id) {
+    EntityUD* ud = (EntityUD*)lua_newuserdata(L, sizeof(EntityUD));
+    ud->id = id;
+    luaL_setmetatable(L, SCAR_ENTITY_MT);
+}
+
+void push_squad(lua_State* L, int id) {
+    SquadUD* ud = (SquadUD*)lua_newuserdata(L, sizeof(SquadUD));
+    ud->id = id;
+    luaL_setmetatable(L, SCAR_SQUAD_MT);
+}
+
+void push_player(lua_State* L, int id) {
+    PlayerUD* ud = (PlayerUD*)lua_newuserdata(L, sizeof(PlayerUD));
+    ud->id = id;
+    luaL_setmetatable(L, SCAR_PLAYER_MT);
+}
+
+void push_egroup(lua_State* L, const char* name) {
+    EGroupUD* ud = (EGroupUD*)lua_newuserdata(L, sizeof(EGroupUD));
+    strncpy(ud->name, name, MAX_BLUEPRINT_LEN - 1);
+    ud->name[MAX_BLUEPRINT_LEN - 1] = '\0';
+    luaL_setmetatable(L, SCAR_EGROUP_MT);
+}
+
+void push_sgroup(lua_State* L, const char* name) {
+    SGroupUD* ud = (SGroupUD*)lua_newuserdata(L, sizeof(SGroupUD));
+    strncpy(ud->name, name, MAX_BLUEPRINT_LEN - 1);
+    ud->name[MAX_BLUEPRINT_LEN - 1] = '\0';
+    luaL_setmetatable(L, SCAR_SGROUP_MT);
+}
+
+int check_entity_id(lua_State* L, int idx) {
+    EntityUD* ud = (EntityUD*)luaL_checkudata(L, idx, SCAR_ENTITY_MT);
+    return ud->id;
+}
+
+int check_squad_id(lua_State* L, int idx) {
+    SquadUD* ud = (SquadUD*)luaL_checkudata(L, idx, SCAR_SQUAD_MT);
+    return ud->id;
+}
+
+int check_player_id(lua_State* L, int idx) {
+    PlayerUD* ud = (PlayerUD*)luaL_checkudata(L, idx, SCAR_PLAYER_MT);
+    return ud->id;
+}
+
+const char* check_egroup_name(lua_State* L, int idx) {
+    EGroupUD* ud = (EGroupUD*)luaL_checkudata(L, idx, SCAR_EGROUP_MT);
+    return ud->name;
+}
+
+const char* check_sgroup_name(lua_State* L, int idx) {
+    SGroupUD* ud = (SGroupUD*)luaL_checkudata(L, idx, SCAR_SGROUP_MT);
+    return ud->name;
+}
+
+/* ── __tostring metamethods ──────────────────────────────────────── */
+
+static int entity_tostring(lua_State* L) {
+    EntityUD* ud = (EntityUD*)luaL_checkudata(L, 1, SCAR_ENTITY_MT);
+    lua_pushfstring(L, "Entity[%d]", ud->id);
+    return 1;
+}
+
+static int squad_tostring(lua_State* L) {
+    SquadUD* ud = (SquadUD*)luaL_checkudata(L, 1, SCAR_SQUAD_MT);
+    lua_pushfstring(L, "Squad[%d]", ud->id);
+    return 1;
+}
+
+static int player_tostring(lua_State* L) {
+    PlayerUD* ud = (PlayerUD*)luaL_checkudata(L, 1, SCAR_PLAYER_MT);
+    lua_pushfstring(L, "Player[%d]", ud->id);
+    return 1;
+}
+
+static int egroup_tostring(lua_State* L) {
+    EGroupUD* ud = (EGroupUD*)luaL_checkudata(L, 1, SCAR_EGROUP_MT);
+    lua_pushfstring(L, "EGroup[%s]", ud->name);
+    return 1;
+}
+
+static int sgroup_tostring(lua_State* L) {
+    SGroupUD* ud = (SGroupUD*)luaL_checkudata(L, 1, SCAR_SGROUP_MT);
+    lua_pushfstring(L, "SGroup[%s]", ud->name);
+    return 1;
+}
+
+/* ── __eq metamethods (same type + same id/name = equal) ─────────── */
+
+static int entity_eq(lua_State* L) {
+    EntityUD* a = (EntityUD*)luaL_checkudata(L, 1, SCAR_ENTITY_MT);
+    EntityUD* b = (EntityUD*)luaL_checkudata(L, 2, SCAR_ENTITY_MT);
+    lua_pushboolean(L, a->id == b->id);
+    return 1;
+}
+
+static int squad_eq(lua_State* L) {
+    SquadUD* a = (SquadUD*)luaL_checkudata(L, 1, SCAR_SQUAD_MT);
+    SquadUD* b = (SquadUD*)luaL_checkudata(L, 2, SCAR_SQUAD_MT);
+    lua_pushboolean(L, a->id == b->id);
+    return 1;
+}
+
+static int player_eq(lua_State* L) {
+    PlayerUD* a = (PlayerUD*)luaL_checkudata(L, 1, SCAR_PLAYER_MT);
+    PlayerUD* b = (PlayerUD*)luaL_checkudata(L, 2, SCAR_PLAYER_MT);
+    lua_pushboolean(L, a->id == b->id);
+    return 1;
+}
+
+static int egroup_eq(lua_State* L) {
+    EGroupUD* a = (EGroupUD*)luaL_checkudata(L, 1, SCAR_EGROUP_MT);
+    EGroupUD* b = (EGroupUD*)luaL_checkudata(L, 2, SCAR_EGROUP_MT);
+    lua_pushboolean(L, strcmp(a->name, b->name) == 0);
+    return 1;
+}
+
+static int sgroup_eq(lua_State* L) {
+    SGroupUD* a = (SGroupUD*)luaL_checkudata(L, 1, SCAR_SGROUP_MT);
+    SGroupUD* b = (SGroupUD*)luaL_checkudata(L, 2, SCAR_SGROUP_MT);
+    lua_pushboolean(L, strcmp(a->name, b->name) == 0);
+    return 1;
+}
+
+/* ── Register all metatables ─────────────────────────────────────── */
+
+static void register_metatable(lua_State* L, const char* name,
+                               lua_CFunction tostring_fn, lua_CFunction eq_fn) {
+    luaL_newmetatable(L, name);
+    lua_pushcfunction(L, tostring_fn);
+    lua_setfield(L, -2, "__tostring");
+    lua_pushcfunction(L, eq_fn);
+    lua_setfield(L, -2, "__eq");
+    lua_pop(L, 1);
+}
+
+void scar_types_register(lua_State* L) {
+    register_metatable(L, SCAR_ENTITY_MT, entity_tostring, entity_eq);
+    register_metatable(L, SCAR_SQUAD_MT,  squad_tostring,  squad_eq);
+    register_metatable(L, SCAR_PLAYER_MT, player_tostring, player_eq);
+    register_metatable(L, SCAR_EGROUP_MT, egroup_tostring, egroup_eq);
+    register_metatable(L, SCAR_SGROUP_MT, sgroup_tostring, sgroup_eq);
+}

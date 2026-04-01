@@ -106,14 +106,14 @@ static int l_World_GetPlayerAt(lua_State* L) {
     if (index < 1 || index > gs->player_count) {
         return luaL_error(L, "World_GetPlayerAt: index %d out of range", index);
     }
-    lua_pushinteger(L, gs->players[index - 1].id);
+    push_player(L, gs->players[index - 1].id);
     return 1;
 }
 
 static int l_Game_GetLocalPlayer(lua_State* L) {
     GameState* gs = game_state_from_lua(L);
     if (gs->player_count > 0) {
-        lua_pushinteger(L, gs->players[0].id);
+        push_player(L, gs->players[0].id);
     } else {
         lua_pushnil(L);
     }

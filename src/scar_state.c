@@ -105,6 +105,9 @@ lua_State* scar_state_new(const char* scar_root, GameState* gs) {
 
     luaL_openlibs(L);
 
+    /* Register SCAR type metatables */
+    scar_types_register(L);
+
     /* Store scar_root in registry */
     lua_pushstring(L, scar_root);
     lua_setfield(L, LUA_REGISTRYINDEX, SCAR_ROOT_REGISTRY_KEY);

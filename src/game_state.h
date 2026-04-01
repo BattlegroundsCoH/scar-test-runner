@@ -156,4 +156,35 @@ void        push_position(lua_State* L, Position pos);
 /* Helper: read Position from Lua table at given stack index */
 Position    read_position(lua_State* L, int idx);
 
+/* ── Typed userdata for SCAR handles ─────────────────────────────── */
+
+#define SCAR_ENTITY_MT "ScarEntity"
+#define SCAR_SQUAD_MT  "ScarSquad"
+#define SCAR_PLAYER_MT "ScarPlayer"
+#define SCAR_EGROUP_MT "ScarEGroup"
+#define SCAR_SGROUP_MT "ScarSGroup"
+
+typedef struct { int id; } EntityUD;
+typedef struct { int id; } SquadUD;
+typedef struct { int id; } PlayerUD;
+typedef struct { char name[MAX_BLUEPRINT_LEN]; } EGroupUD;
+typedef struct { char name[MAX_BLUEPRINT_LEN]; } SGroupUD;
+
+/* Register metatables for all SCAR types (call once per lua_State) */
+void scar_types_register(lua_State* L);
+
+/* Push typed userdata onto the Lua stack */
+void push_entity(lua_State* L, int id);
+void push_squad(lua_State* L, int id);
+void push_player(lua_State* L, int id);
+void push_egroup(lua_State* L, const char* name);
+void push_sgroup(lua_State* L, const char* name);
+
+/* Check and extract typed userdata from the Lua stack (raises error on type mismatch) */
+int         check_entity_id(lua_State* L, int idx);
+int         check_squad_id(lua_State* L, int idx);
+int         check_player_id(lua_State* L, int idx);
+const char* check_egroup_name(lua_State* L, int idx);
+const char* check_sgroup_name(lua_State* L, int idx);
+
 #endif /* GAME_STATE_H */

@@ -1,0 +1,84 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact: scar-test-linux-amd64
+            binary: scar-test
+          - os: macos-latest
+            artifact: scar-test-macos-amd64
+            binary: scar-test
+          - os: windows-latest
+            artifact: scar-test-windows-amd64
+            binary: scar-test.exe
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure CMake
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Run tests (Unix)
+        if: runner.os != 'Windows'
+        run: ./build/scar-test --scar-root examples/mod/assets/scar examples/test/
+
+      - name: Run tests (Windows)
+        if: runner.os == 'Windows'
+        run: .\build\Release\scar-test.exe --scar-root examples\mod\assets\scar examples\test\
+
+      - name: Package (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          mkdir -p staging
+          cp build/${{ matrix.binary }} staging/
+          cd staging && tar czf ../${{ matrix.artifact }}.tar.gz ${{ matrix.binary }}
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force staging
+          Copy-Item build\Release\${{ matrix.binary }} staging\
+          Compress-Archive -Path staging\${{ matrix.binary }} -DestinationPath ${{ matrix.artifact }}.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: |
+            ${{ matrix.artifact }}.tar.gz
+            ${{ matrix.artifact }}.zip
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            artifacts/**/*.tar.gz
+            artifacts/**/*.zip

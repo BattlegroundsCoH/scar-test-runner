@@ -338,7 +338,7 @@ static int l_Mock_CreateEntity(lua_State* L) {
         e->health = e->health_max;
     }
 
-    lua_pushinteger(L, id);
+    push_entity(L, id);
     return 1;
 }
 
@@ -356,18 +356,18 @@ static int l_Mock_CreateSquad(lua_State* L) {
     }
     strncpy(s->blueprint, bp, MAX_BLUEPRINT_LEN - 1);
 
-    /* Optional: entity_ids table as 3rd arg */
+    /* Optional: entity_ids table as 3rd arg (Entity userdata handles) */
     if (lua_istable(L, 3)) {
         int n = (int)lua_rawlen(L, 3);
         if (n > MAX_SQUAD_ENTITIES) n = MAX_SQUAD_ENTITIES;
         for (int i = 1; i <= n; i++) {
             lua_rawgeti(L, 3, i);
-            s->entity_ids[s->entity_count++] = (int)lua_tointeger(L, -1);
+            s->entity_ids[s->entity_count++] = check_entity_id(L, -1);
             lua_pop(L, 1);
         }
     }
 
-    lua_pushinteger(L, id);
+    push_squad(L, id);
     return 1;
 }
 
@@ -385,12 +385,12 @@ static int l_Mock_CreatePlayer(lua_State* L) {
     }
     p->team_id = team_id;
 
-    lua_pushinteger(L, id);
+    push_player(L, id);
     return 1;
 }
 
 static int l_Mock_SetResources(lua_State* L) {
-    int player_id = (int)luaL_checkinteger(L, 1);
+    int player_id = check_player_id(L, 1);
     float mp  = (float)luaL_checknumber(L, 2);
     float fuel = (float)luaL_checknumber(L, 3);
     float mun  = (float)luaL_checknumber(L, 4);
@@ -413,8 +413,8 @@ static int l_Mock_ResetState(lua_State* L) {
 }
 
 static int l_Mock_SetEntityOwner(lua_State* L) {
-    int entity_id = (int)luaL_checkinteger(L, 1);
-    int player_id = (int)luaL_checkinteger(L, 2);
+    int entity_id = check_entity_id(L, 1);
+    int player_id = check_player_id(L, 2);
     GameState* gs = game_state_from_lua(L);
     MockEntity* e = game_state_get_entity(gs, entity_id);
     if (!e) return luaL_error(L, "Mock_SetEntityOwner: entity %d not found", entity_id);
@@ -423,8 +423,8 @@ static int l_Mock_SetEntityOwner(lua_State* L) {
 }
 
 static int l_Mock_SetSquadOwner(lua_State* L) {
-    int squad_id = (int)luaL_checkinteger(L, 1);
-    int player_id = (int)luaL_checkinteger(L, 2);
+    int squad_id = check_squad_id(L, 1);
+    int player_id = check_player_id(L, 2);
     GameState* gs = game_state_from_lua(L);
     MockSquad* s = game_state_get_squad(gs, squad_id);
     if (!s) return luaL_error(L, "Mock_SetSquadOwner: squad %d not found", squad_id);

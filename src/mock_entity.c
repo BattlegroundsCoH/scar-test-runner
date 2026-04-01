@@ -6,7 +6,7 @@
 
 static MockEntity* check_entity(lua_State* L, int arg_idx) {
     GameState* gs = game_state_from_lua(L);
-    int id = (int)luaL_checkinteger(L, arg_idx);
+    int id = check_entity_id(L, arg_idx);
     MockEntity* e = game_state_get_entity(gs, id);
     if (!e) {
         luaL_error(L, "Entity_*: entity with id %d not found", id);
@@ -60,13 +60,13 @@ static int l_Entity_SetPosition(lua_State* L) {
 
 static int l_Entity_GetPlayerOwner(lua_State* L) {
     MockEntity* e = check_entity(L, 1);
-    lua_pushinteger(L, e->player_owner_id);
+    push_player(L, e->player_owner_id);
     return 1;
 }
 
 static int l_Entity_SetPlayerOwner(lua_State* L) {
     MockEntity* e = check_entity(L, 1);
-    e->player_owner_id = (int)luaL_checkinteger(L, 2);
+    e->player_owner_id = check_player_id(L, 2);
     return 0;
 }
 
@@ -108,6 +108,39 @@ static int l_Entity_Kill(lua_State* L) {
     return 0;
 }
 
+static int l_Entity_GetGameID(lua_State* L) {
+    int id = check_entity_id(L, 1);
+    lua_pushinteger(L, id);
+    return 1;
+}
+
+static int l_Entity_FromWorldID(lua_State* L) {
+    int id = (int)luaL_checkinteger(L, 1);
+    GameState* gs = game_state_from_lua(L);
+    MockEntity* e = game_state_get_entity(gs, id);
+    if (!e) {
+        return luaL_error(L, "Entity_FromWorldID: entity with id %d not found", id);
+    }
+    push_entity(L, id);
+    return 1;
+}
+
+static int l_Entity_GetSquad(lua_State* L) {
+    MockEntity* e = check_entity(L, 1);
+    GameState* gs = game_state_from_lua(L);
+    /* Find squad containing this entity */
+    for (int i = 0; i < gs->squad_count; i++) {
+        for (int j = 0; j < gs->squads[i].entity_count; j++) {
+            if (gs->squads[i].entity_ids[j] == e->id) {
+                push_squad(L, gs->squads[i].id);
+                return 1;
+            }
+        }
+    }
+    lua_pushnil(L);
+    return 1;
+}
+
 void mock_entity_register(lua_State* L) {
     lua_register(L, "Entity_GetHealth",           l_Entity_GetHealth);
     lua_register(L, "Entity_SetHealth",           l_Entity_SetHealth);
@@ -123,4 +156,7 @@ void mock_entity_register(lua_State* L) {
     lua_register(L, "Entity_IsInvulnerable",      l_Entity_IsInvulnerable);
     lua_register(L, "Entity_GetBlueprint",        l_Entity_GetBlueprint);
     lua_register(L, "Entity_Kill",                l_Entity_Kill);
+    lua_register(L, "Entity_GetGameID",           l_Entity_GetGameID);
+    lua_register(L, "Entity_FromWorldID",         l_Entity_FromWorldID);
+    lua_register(L, "Entity_GetSquad",            l_Entity_GetSquad);
 }

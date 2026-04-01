@@ -6,7 +6,7 @@
 
 static MockSquad* check_squad(lua_State* L, int arg_idx) {
     GameState* gs = game_state_from_lua(L);
-    int id = (int)luaL_checkinteger(L, arg_idx);
+    int id = check_squad_id(L, arg_idx);
     MockSquad* s = game_state_get_squad(gs, id);
     if (!s) {
         luaL_error(L, "Squad_*: squad with id %d not found", id);
@@ -66,13 +66,13 @@ static int l_Squad_GetPosition(lua_State* L) {
 
 static int l_Squad_GetPlayerOwner(lua_State* L) {
     MockSquad* s = check_squad(L, 1);
-    lua_pushinteger(L, s->player_owner_id);
+    push_player(L, s->player_owner_id);
     return 1;
 }
 
 static int l_Squad_SetPlayerOwner(lua_State* L) {
     MockSquad* s = check_squad(L, 1);
-    s->player_owner_id = (int)luaL_checkinteger(L, 2);
+    s->player_owner_id = check_player_id(L, 2);
     /* Also update member entities */
     GameState* gs = game_state_from_lua(L);
     for (int i = 0; i < s->entity_count; i++) {
@@ -132,6 +132,23 @@ static int l_Squad_Kill(lua_State* L) {
     return 0;
 }
 
+static int l_Squad_GetGameID(lua_State* L) {
+    int id = check_squad_id(L, 1);
+    lua_pushinteger(L, id);
+    return 1;
+}
+
+static int l_Squad_FromWorldID(lua_State* L) {
+    int id = (int)luaL_checkinteger(L, 1);
+    GameState* gs = game_state_from_lua(L);
+    MockSquad* s = game_state_get_squad(gs, id);
+    if (!s) {
+        return luaL_error(L, "Squad_FromWorldID: squad with id %d not found", id);
+    }
+    push_squad(L, id);
+    return 1;
+}
+
 void mock_squad_register(lua_State* L) {
     lua_register(L, "Squad_GetHealth",       l_Squad_GetHealth);
     lua_register(L, "Squad_SetHealth",       l_Squad_SetHealth);
@@ -145,4 +162,6 @@ void mock_squad_register(lua_State* L) {
     lua_register(L, "Squad_WarpToPos",       l_Squad_WarpToPos);
     lua_register(L, "Squad_GetBlueprint",    l_Squad_GetBlueprint);
     lua_register(L, "Squad_Kill",            l_Squad_Kill);
+    lua_register(L, "Squad_GetGameID",       l_Squad_GetGameID);
+    lua_register(L, "Squad_FromWorldID",     l_Squad_FromWorldID);
 }

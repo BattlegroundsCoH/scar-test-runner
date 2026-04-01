@@ -15,12 +15,12 @@ static int l_EGroup_Create(lua_State* L) {
             return luaL_error(L, "EGroup_Create: maximum egroup count reached");
         }
     }
-    lua_pushstring(L, eg->name);
+    push_egroup(L, eg->name);
     return 1;
 }
 
 static MockEGroup* check_egroup(lua_State* L, int arg_idx) {
-    const char* name = luaL_checkstring(L, arg_idx);
+    const char* name = check_egroup_name(L, arg_idx);
     GameState* gs = game_state_from_lua(L);
     MockEGroup* eg = game_state_get_egroup(gs, name);
     if (!eg) {
@@ -31,7 +31,7 @@ static MockEGroup* check_egroup(lua_State* L, int arg_idx) {
 
 static int l_EGroup_Add(lua_State* L) {
     MockEGroup* eg = check_egroup(L, 1);
-    int entity_id = (int)luaL_checkinteger(L, 2);
+    int entity_id = check_entity_id(L, 2);
     if (eg->count >= MAX_GROUP_ITEMS) {
         return luaL_error(L, "EGroup_Add: group '%s' is full", eg->name);
     }
@@ -53,7 +53,7 @@ static int l_EGroup_Clear(lua_State* L) {
 
 static int l_EGroup_ContainsEntity(lua_State* L) {
     MockEGroup* eg = check_egroup(L, 1);
-    int entity_id = (int)luaL_checkinteger(L, 2);
+    int entity_id = check_entity_id(L, 2);
     for (int i = 0; i < eg->count; i++) {
         if (eg->entity_ids[i] == entity_id) {
             lua_pushboolean(L, 1);
@@ -71,7 +71,7 @@ static int l_EGroup_GetEntityAt(lua_State* L) {
     if (index < 1 || index > eg->count) {
         return luaL_error(L, "EGroup_GetEntityAt: index %d out of range (1..%d)", index, eg->count);
     }
-    lua_pushinteger(L, eg->entity_ids[index - 1]);
+    push_entity(L, eg->entity_ids[index - 1]);
     return 1;
 }
 

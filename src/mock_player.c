@@ -4,7 +4,7 @@
 
 static MockPlayer* check_player(lua_State* L, int arg_idx) {
     GameState* gs = game_state_from_lua(L);
-    int id = (int)luaL_checkinteger(L, arg_idx);
+    int id = check_player_id(L, arg_idx);
     MockPlayer* p = game_state_get_player(gs, id);
     if (!p) {
         luaL_error(L, "Player_*: player with id %d not found", id);
@@ -63,7 +63,7 @@ static int l_Player_SetResources(lua_State* L) {
 static int l_Player_OwnsEntity(lua_State* L) {
     MockPlayer* p = check_player(L, 1);
     GameState* gs = game_state_from_lua(L);
-    int eid = (int)luaL_checkinteger(L, 2);
+    int eid = check_entity_id(L, 2);
     MockEntity* e = game_state_get_entity(gs, eid);
     lua_pushboolean(L, e && e->player_owner_id == p->id);
     return 1;
@@ -72,7 +72,7 @@ static int l_Player_OwnsEntity(lua_State* L) {
 static int l_Player_OwnsSquad(lua_State* L) {
     MockPlayer* p = check_player(L, 1);
     GameState* gs = game_state_from_lua(L);
-    int sid = (int)luaL_checkinteger(L, 2);
+    int sid = check_squad_id(L, 2);
     MockSquad* s = game_state_get_squad(gs, sid);
     lua_pushboolean(L, s && s->player_owner_id == p->id);
     return 1;
@@ -112,6 +112,17 @@ static int l_Player_GetTeam(lua_State* L) {
     return 1;
 }
 
+static int l_Player_FromWorldID(lua_State* L) {
+    int id = (int)luaL_checkinteger(L, 1);
+    GameState* gs = game_state_from_lua(L);
+    MockPlayer* p = game_state_get_player(gs, id);
+    if (!p) {
+        return luaL_error(L, "Player_FromWorldID: player with id %d not found", id);
+    }
+    push_player(L, id);
+    return 1;
+}
+
 void mock_player_register(lua_State* L) {
     lua_register(L, "Player_GetResource",          l_Player_GetResource);
     lua_register(L, "Player_SetResource",          l_Player_SetResource);
@@ -123,4 +134,5 @@ void mock_player_register(lua_State* L) {
     lua_register(L, "Player_GetCurrentPopulation", l_Player_GetCurrentPopulation);
     lua_register(L, "Player_GetID",                l_Player_GetID);
     lua_register(L, "Player_GetTeam",              l_Player_GetTeam);
+    lua_register(L, "Player_FromWorldID",          l_Player_FromWorldID);
 }

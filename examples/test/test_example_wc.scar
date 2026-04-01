@@ -6,26 +6,29 @@ import("winconditions/example_wc.scar")
 
 describe("Annihilation Wincondition", function()
 
+    local player1, player2
+    local entity1, entity2
+    local eg1, eg2
+
     before_each(function()
         -- Set up 2 players
-        Mock_CreatePlayer(1, 1)  -- Player 1, Team 1
-        Mock_CreatePlayer(2, 2)  -- Player 2, Team 2
+        player1 = Mock_CreatePlayer(1, 1)  -- Player 1, Team 1
+        player2 = Mock_CreatePlayer(2, 2)  -- Player 2, Team 2
 
         -- Create entities for each player
-        Mock_CreateEntity(101, "infantry_squad", 10, 0, 10, 100)
-        Mock_SetEntityOwner(101, 1)
-        Mock_CreateEntity(102, "infantry_squad", 20, 0, 20, 100)
-        Mock_SetEntityOwner(102, 2)
+        entity1 = Mock_CreateEntity(101, "infantry_squad", 10, 0, 10, 100)
+        Mock_SetEntityOwner(entity1, player1)
+        entity2 = Mock_CreateEntity(102, "infantry_squad", 20, 0, 20, 100)
+        Mock_SetEntityOwner(entity2, player2)
 
-        -- Set up entity groups that the wincondition checks
-        EGroup_Create("player_1_entities")
-        EGroup_Add("player_1_entities", 101)
-
-        EGroup_Create("player_2_entities")
-        EGroup_Add("player_2_entities", 102)
-
-        -- Phase 2: Run init (calls _annihilation_init via Game_AddInit)
+        -- Run init (calls _annihilation_init which creates EGroups)
         Scar_ForceInit()
+
+        -- Get the EGroup handles and populate them with entities
+        eg1 = _annihilation_get_egroup(1)
+        EGroup_Add(eg1, entity1)
+        eg2 = _annihilation_get_egroup(2)
+        EGroup_Add(eg2, entity2)
     end)
 
     describe("initialization", function()
@@ -46,7 +49,7 @@ describe("Annihilation Wincondition", function()
     describe("elimination check", function()
         it("should eliminate a player with no entities", function()
             -- Remove all entities from player 2's group
-            EGroup_Clear("player_2_entities")
+            EGroup_Clear(eg2)
 
             -- Run the check
             _annihilation_check()
@@ -66,7 +69,7 @@ describe("Annihilation Wincondition", function()
         end)
 
         it("should detect victory when only one survivor", function()
-            EGroup_Clear("player_2_entities")
+            EGroup_Clear(eg2)
             _annihilation_check()
 
             assert_eq(1, _annihilation_get_survivors(),
@@ -76,14 +79,14 @@ describe("Annihilation Wincondition", function()
 
     describe("entity health tracking", function()
         it("should allow checking entity health via mocks", function()
-            assert_eq(100, Entity_GetHealth(101))
-            Entity_SetHealth(101, 50)
-            assert_eq(50, Entity_GetHealth(101))
+            assert_eq(100, Entity_GetHealth(entity1))
+            Entity_SetHealth(entity1, 50)
+            assert_eq(50, Entity_GetHealth(entity1))
         end)
 
         it("should mark entity as dead at 0 health", function()
-            Entity_SetHealth(101, 0)
-            assert_false(Entity_IsAlive(101))
+            Entity_SetHealth(entity1, 0)
+            assert_false(Entity_IsAlive(entity1))
         end)
     end)
 
@@ -94,7 +97,7 @@ describe("Annihilation Wincondition", function()
         end)
 
         it("should fire the check rule when time advances", function()
-            EGroup_Clear("player_2_entities")
+            EGroup_Clear(eg2)
 
             -- Advance time past the 1-second interval
             Mock_AdvanceTime(1.0)
