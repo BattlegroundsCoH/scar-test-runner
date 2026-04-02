@@ -1,0 +1,66 @@
+describe("UI", function()
+
+    it("should parse valid XAML without errors", function()
+        local xaml = [[
+        <Grid 
+            xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" 
+            xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+            <Label Content="Hello, World!"/>
+        </Grid>]]
+
+        -- This should not throw an error
+        UI_AddChild("", "XamlPresenter", "TestUI", { Xaml = xaml })
+    end)
+
+    it("should raise an error for invalid XAML", function()
+        local invalid_xaml = [[
+        <Grid 
+            xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" 
+            xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+            <Label Content="This is broken...
+        </Grid>]]
+
+        local err = assert_error(function()
+            UI_AddChild("", "XamlPresenter", "TestUI_Invalid", { Xaml = invalid_xaml })
+        end)
+
+        assert_not_nil(err, "Expected an error for invalid XAML, but got none.")
+    end)
+
+    it("should provide a detailed error for tag mismatches", function()
+        local mismatch_xaml = [[
+        <Grid>
+            <Label>
+        </Grid>]]
+
+        local err = assert_error(function()
+            UI_AddChild("", "XamlPresenter", "TestUI_Mismatch", { Xaml = mismatch_xaml })
+        end)
+
+        assert_not_nil(err, "Expected an error for tag mismatch, but got none.")
+        assert_true(string.find(err, "Tag mismatch, expected closing tag for 'Grid'"), "Error message should contain the mismatched tag name. Got: " .. err)
+    end)
+
+    it("should create and update data contexts correctly", function()
+        local xaml = [[<Grid></Grid>]]
+
+        -- Create context
+        local initial_data = { score = 100 }
+        local context = UI_CreateDataContext(initial_data)
+
+        -- Add UI
+        UI_AddChild("", "XamlPresenter", "TestUI_Data", { Xaml = xaml, DataContext = context })
+
+        -- Verify it was added by retrieving it via Mock helper
+        local ui_model = Mock_GetUIElement("TestUI_Data")
+        assert_not_nil(ui_model, "UI element should have been registered")
+        assert_eq(100, ui_model.DataContext.score, "DataContext should perfectly reference initial data")
+
+        -- Now update context
+        local new_data = { score = 8000 }
+        UI_SetDataContext("TestUI_Data", new_data)
+
+        assert_eq(8000, ui_model.DataContext.score, "Data context should be completely updated")
+    end)
+
+end)

@@ -22,11 +22,12 @@ set(SCAR_TEST_SOURCES
     src/mock_core.c
     src/mock_blueprint.c
     src/mock_territory.c
+    src/mock_ui.c
 )
 
 add_executable(scar-test ${SCAR_TEST_SOURCES})
 target_link_libraries(scar-test PRIVATE lua53)
-target_include_directories(scar-test PRIVATE src)
+target_include_directories(scar-test PRIVATE src vendor/hoxml)
 
 if(MSVC)
     target_compile_options(scar-test PRIVATE /W3)

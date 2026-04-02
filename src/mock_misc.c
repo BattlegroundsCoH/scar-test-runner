@@ -310,8 +310,6 @@ void mock_misc_register(lua_State* L) {
     lua_register(L, "EventCues_Register", l_noop);
     lua_register(L, "Sound_Play2D",     l_noop);
     lua_register(L, "Sound_Play3D",     l_noop);
-    lua_register(L, "UI_SetModal",      l_noop);
-    lua_register(L, "UI_ClearModal",    l_noop);
     lua_register(L, "Camera_MoveTo",    l_noop);
     lua_register(L, "FOW_RevealAll",    l_noop);
     lua_register(L, "FOW_UnRevealAll",  l_noop);
@@ -327,16 +325,6 @@ void mock_misc_register(lua_State* L) {
     lua_register(L, "Loc_GetString",     l_noop_empty_string);
 
     /* Additional no-ops for Battlegrounds support */
-    lua_register(L, "UI_CreateDataContext",     l_noop);
-    lua_register(L, "UI_AddChild",              l_noop);
-    lua_register(L, "UI_RemoveChild",           l_noop);
-    lua_register(L, "UI_SetPropertyValue",      l_noop);
-    lua_register(L, "UI_GetPropertyValue",      l_noop_empty_string);
-    lua_register(L, "UI_SetDataTemplate",       l_noop);
-    lua_register(L, "UI_SetDataContext",        l_noop);
-    lua_register(L, "UI_BindPropertyValue",     l_noop);
-    lua_register(L, "UI_DestroyDataContext",    l_noop);
-    lua_register(L, "UI_TitleDestroy",          l_noop);
     lua_register(L, "UI_CreateEventCue",        l_noop);
     lua_register(L, "EventCues_Trigger",        l_noop);
     lua_register(L, "Camera_FocusOnPosition",   l_noop);

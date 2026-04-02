@@ -12,6 +12,7 @@
 #include "mock_core.h"
 #include "mock_blueprint.h"
 #include "mock_territory.h"
+#include "mock_ui.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -208,6 +209,7 @@ lua_State* scar_state_new(const char* scar_root, const char* scar_data, GameStat
     mock_core_register(L);
     mock_blueprint_register(L);
     mock_territory_register(L);
+    mock_ui_register(L);
 
     return L;
 }

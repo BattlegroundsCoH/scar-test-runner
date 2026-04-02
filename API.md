@@ -66,6 +66,7 @@ Spy objects record every call with arguments. Use `assert_called`, `assert_not_c
 | `Mock_FireGlobalEvent(event_type, ...)` | — | Dispatch a global event to registered handlers. |
 | `Mock_ResetState()` | — | Clear all game state (entities, squads, players, groups, rules). |
 | `Mock_AdvanceTime(seconds)` | — | Advance game clock and fire due interval/oneshot rules. |
+| `Mock_GetUIElement(name)` | `table` | Returns the `config_table` that was passed to `UI_AddChild` for this element (contains the DataContext and Xaml). |
 
 ### SCAR Lifecycle
 
